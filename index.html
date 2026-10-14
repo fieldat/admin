@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>在野轮盘 · 六区抽奖</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ff6ac1'/><stop offset='1' stop-color='%23ff2e93'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(%23g)'/><circle cx='22' cy='24' r='7' fill='%23fff' opacity='.9'/><circle cx='43' cy='40' r='9' fill='%23fff' opacity='.55'/></svg>">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=ZCOOL+KuaiLe&display=swap">
+<style>
+/* ===== 基础与色板（骚粉） ===== */
+:root{
+  --bg0:#14040e; --bg1:#2a0a20;
+  --pink:#ff2e93; --pink2:#ff6ac1; --pink3:#ff9cd8; --pink-soft:#ffd9ef;
+  --fuchsia:#c413e8;
+  --ink:#fff0f8; --ink-dim:rgba(255,240,248,.62);
+  --card-line:rgba(255,46,147,.4);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'ZCOOL KuaiLe','Microsoft YaHei',system-ui,-apple-system,sans-serif;
+  color:var(--ink);
+  min-height:100vh;
+  background:
+    radial-gradient(1100px 720px at 88% -12%, rgba(255,46,147,.30), transparent 62%),
+    radial-gradient(920px 620px at -12% 32%, rgba(196,19,232,.26), transparent 60%),
+    linear-gradient(165deg, #14040e 0%, #2a0a20 48%, #1a0516 100%);
+  background-attachment:fixed;
+  overflow-x:hidden;
+}
+button{font-family:inherit}
+.blob-layer{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.blob{position:absolute;border-radius:50%;filter:blur(92px);opacity:.5;animation:drift 18s ease-in-out infinite alternate}
+.blob.a{width:540px;height:540px;background:#ff2e93;top:-170px;right:-130px}
+.blob.b{width:480px;height:480px;background:#c413e8;bottom:-170px;left:-150px;animation-delay:-9s}
+@keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(44px,32px,0) scale(1.12)}}
+
+/* ===== 页面骨架 ===== */
+#app{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:28px 18px 44px}
+.page-head{text-align:center;margin-bottom:22px}
+.page-title{
+  font-size:clamp(34px,6vw,52px);letter-spacing:.1em;font-weight:400;
+  background:linear-gradient(180deg,#fff 8%,#ffd3ec 46%,#ff2e93 92%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(255,46,147,.55));
+}
+.page-sub{margin-top:9px;color:var(--ink-dim);font-size:clamp(13px,2vw,15px);letter-spacing:.05em}
+.pool-line{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;color:var(--ink-dim);font-size:13px;letter-spacing:.04em}
+.pool-label{color:var(--pink-soft)}
+.pool-chip{display:inline-block;padding:2px 10px;border:1px solid rgba(255,46,147,.5);border-radius:999px;background:rgba(255,46,147,.12);color:#ffd9ef;font-size:13px}
+
+/* ===== 六区网格 ===== */
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:8px}
+@media (max-width:759px){.grid{grid-template-columns:1fr}}
+
+/* ===== 区卡片 ===== */
+.zone{
+  position:relative;background:rgba(29,10,25,.84);
+  border:1.5px solid var(--card-line);border-radius:20px;
+  padding:13px 14px 15px;
+  box-shadow:0 12px 32px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.025);
+  transition:transform .2s ease, box-shadow .2s ease;
+  cursor:pointer;
+}
+.zone:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(0,0,0,.42),0 0 26px rgba(255,46,147,.30)}
+.zone:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.zone.busy{cursor:progress}
+.zone.locked{cursor:default}
+.zone.locked:hover{transform:none;box-shadow:0 12px 32px rgba(0,0,0,.38)}
+.zone-head{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.zone-name{
+  font-size:21px;letter-spacing:.08em;font-weight:400;
+  background:linear-gradient(90deg,#ff9cd8,#fff 70%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.zone-status{margin-left:auto;font-size:12px;color:var(--ink-dim);border:1px solid rgba(255,46,147,.35);padding:3px 11px;border-radius:999px;white-space:nowrap;letter-spacing:.04em;transition:all .25s}
+.zone-status.hot{color:#ffc8e8;border-color:rgba(255,46,147,.65);background:rgba(255,46,147,.14)}
+
+/* ===== 按钮 ===== */
+.btn-reset{height:44px;padding:0 14px;border:1.5px solid rgba(255,46,147,.55);background:rgba(255,46,147,.08);color:#ffd9ef;border-radius:12px;font-size:14px;letter-spacing:.06em;cursor:pointer;transition:all .2s}
+.btn-reset:hover{background:rgba(255,46,147,.92);color:#fff;box-shadow:0 0 16px rgba(255,46,147,.65)}
+.btn-reset:active{transform:scale(.96)}
+.btn-reset:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-total{height:52px;padding:0 36px;border:none;border-radius:999px;font-size:18px;letter-spacing:.14em;color:#fff;cursor:pointer;background:linear-gradient(135deg,#ff2e93,#c413e8);box-shadow:0 8px 26px rgba(255,46,147,.45), inset 0 0 0 1px rgba(255,255,255,.18);transition:all .2s}
+.btn-total:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(255,46,147,.62)}
+.btn-total:active{transform:scale(.97)}
+
+/* ===== 纸带 ===== */
+.tapes{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.tape{display:flex;align-items:center;gap:8px}
+.tape-tag{flex:none;width:32px;text-align:center;font-size:14px;color:var(--pink3);border:1px solid rgba(255,46,147,.42);border-radius:9px;padding:4px 0;background:rgba(255,46,147,.09);letter-spacing:.05em;transition:all .2s}
+.tape-view{position:relative;flex:1;height:42px;overflow:hidden;border:1.5px solid rgba(255,46,147,.22);border-radius:12px;background:rgba(255,255,255,.03);transition:border-color .2s, box-shadow .2s, background .2s;cursor:pointer;min-width:0}
+.tape.sel .tape-view{border-color:var(--pink);box-shadow:0 0 18px rgba(255,46,147,.55);background:rgba(255,46,147,.1)}
+.tape.sel .tape-tag{color:#fff;background:rgba(255,46,147,.75);border-color:var(--pink)}
+.tape.done{opacity:.5;filter:saturate(.5)}
+.tape.done .tape-view{cursor:default}
+.tape-track{position:absolute;top:0;left:0;height:100%;display:flex;align-items:center;will-change:transform}
+.chip{
+  flex:none;width:66px;padding:0 4px;text-align:center;line-height:1;white-space:nowrap;
+  border:1.5px solid rgba(255,46,147,.55);border-radius:999px;background:rgba(255,46,147,.1);
+  color:#ffd9ef;font-size:15px;letter-spacing:.04em;padding-top:7px;padding-bottom:7px;
+  transition:transform .22s ease, background .22s ease, box-shadow .22s ease, color .22s ease, border-color .22s ease;
+}
+.chip-hit{
+  background:linear-gradient(135deg,#ff2e93,#ff6ac1);color:#fff;transform:scale(1.3);
+  box-shadow:0 0 28px rgba(255,46,147,.95);border-color:#fff;z-index:2;position:relative;
+}
+.tape-marker{display:none}
+
+/* ===== 结果显示区 ===== */
+.zone-result{position:relative;min-height:78px;display:flex;align-items:center;justify-content:center;border:1.5px dashed rgba(255,46,147,.36);border-radius:14px;background:linear-gradient(135deg,rgba(255,46,147,.13),rgba(255,158,216,.05));overflow:hidden;transition:border-color .3s}
+.zone-result::before{content:"";position:absolute;inset:0;background:radial-gradient(320px 96px at 50% 50%,rgba(255,46,147,.2),transparent 70%);opacity:0;transition:opacity .35s}
+.zone.got .zone-result{border-color:rgba(255,46,147,.75)}
+.zone.got .zone-result::before{opacity:1}
+.result-text{font-size:clamp(24px,3.4vw,32px);letter-spacing:.12em;color:#fff;text-shadow:0 0 18px rgba(255,46,147,.85);z-index:1}
+.result-text.idle{font-size:15px;color:var(--ink-dim);letter-spacing:.08em;text-shadow:none}
+.result-text.pop{animation:pop .55s cubic-bezier(.2,1.6,.35,1)}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+
+/* ===== 页脚 ===== */
+.page-foot{text-align:center;margin-top:28px}
+.hint{margin-top:14px;color:var(--ink-dim);font-size:13px;letter-spacing:.05em}
+
+/* ===== 飞行动画层 / 提示 ===== */
+.fly-chip{position:fixed;z-index:100;pointer-events:none;display:flex;align-items:center;justify-content:center;border-radius:999px;color:#fff;font-family:'ZCOOL KuaiLe','Microsoft YaHei',sans-serif;font-size:15px;background:linear-gradient(135deg,#ff2e93,#ff6ac1);box-shadow:0 0 32px rgba(255,46,147,.95);transition:transform .64s cubic-bezier(.25,.6,.3,1), opacity .64s ease;will-change:transform,opacity}
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(16px);z-index:120;background:rgba(40,8,30,.95);color:#ffd9ef;border:1px solid rgba(255,46,147,.65);border-radius:999px;padding:10px 22px;font-size:14px;letter-spacing:.05em;box-shadow:0 0 24px rgba(255,46,147,.45);opacity:0;pointer-events:none;transition:opacity .25s, transform .25s;max-width:82vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (prefers-reduced-motion: reduce){
+  .blob{animation:none}
+  .chip,.result-text{transition:none}
+  .fly-chip{transition-duration:.2s}
+}
+</style>
+</head>
+<body>
+<div class="blob-layer" aria-hidden="true">
+  <div class="blob a"></div>
+  <div class="blob b"></div>
+</div>
+
+<div id="app">
+  <header class="page-head">
+    <h1 class="page-title">在野轮盘</h1>
+    <p class="page-sub">六区抽奖 · 点纸带选中，点区框抽取 · 先抽小组，再抽号码</p>
+    <div class="pool-line"><span class="pool-label">剩余小组</span><span id="pool"></span></div>
+  </header>
+  <main id="grid" class="grid"></main>
+  <footer class="page-foot">
+    <button id="btnTotal" type="button" class="btn-total">全部重置</button>
+    <p class="hint">每区抽满「小组＋号码」后锁定 · 区内重置按钮或页面底部全部重置均可重新抽取</p>
+  </footer>
+</div>
+
+<div id="toast" role="status"></div>
+<script>
+(function(){
+'use strict';
+
+/* ===== 配置与数据 ===== */
+var GROUPS=['一组','二组','三组','四组','五组','六组'];
+var PERSONS=['1号','2号','3号','4号','5号','6号','7号','8号'];
+var ZONE_NAMES=['一区','二区','三区','四区','五区','六区'];
+var CHIP_W=66, GAP=8, STEP=CHIP_W+GAP;
+var IDLE_SPEED=28;          // 慢速滚动 px/s
+var DRAW_MS=2600;           // 快速滚动时长
+var HOLD_MS=620;            // 停下高亮停留
+var FLY_MS=640;             // 飞入时长
+var REDUCED=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+var grid=document.getElementById('grid');
+var poolEl=document.getElementById('pool');
+var toastEl=document.getElementById('toast');
+var toastTimer=null;
+function toast(msg){
+  toastEl.textContent=msg;toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){toastEl.classList.remove('show');},1700);
+}
+
+/* ===== 每区状态 ===== */
+var zones=ZONE_NAMES.map(function(name){
+  return {
+    name:name,
+    group:null, person:null,
+    groupDrawn:false, personDrawn:false,
+    selected:'group',
+    busy:false,
+    el:null, statusEl:null, resultText:null,
+    tapes:{group:null,person:null}
+  };
+});
+
+/* ===== 纸带构建 ===== */
+function buildTape(kind){
+  var items=(kind==='group')?GROUPS:PERSONS;
+  var N=items.length;
+  var track=document.createElement('div');
+  track.className='tape-track';
+  var k,i;
+  for(k=0;k<5;k++){
+    for(i=0;i<N;i++){
+      var span=document.createElement('span');
+      span.className='chip';span.textContent=items[i];
+      track.appendChild(span);
+    }
+  }
+  var view=document.createElement('div');
+  view.className='tape-view';
+  view.appendChild(track);
+  return {view:view, track:track, N:N, chips:Array.prototype.slice.call(track.children), offset:0, mode:'idle'};
+}
+
+function appendTape(wrap,kind,z){
+  var tapeEl=document.createElement('div');
+  tapeEl.className='tape';
+  var tag=document.createElement('span');
+  tag.className='tape-tag';tag.textContent=(kind==='group')?'组':'号';
+  var tape=buildTape(kind);
+  tape.el=tapeEl;tape.kind=kind;tape.zone=z;
+  tapeEl.appendChild(tag);tapeEl.appendChild(tape.view);
+  wrap.appendChild(tapeEl);
+  tape.view.addEventListener('click',function(e){
+    e.stopPropagation();selectTape(z,kind);
+  });
+  return tape;
+}
+
+/* ===== 界面更新 ===== */
+function popText(el){
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+function updateTapeSelect(z){
+  var g=z.tapes.group, p=z.tapes.person;
+  g.el.classList.toggle('sel', z.selected==='group' && !z.groupDrawn);
+  p.el.classList.toggle('sel', z.selected==='person' && !z.personDrawn);
+}
+function updateZone(z){
+  z.statusEl.textContent = (z.groupDrawn&&z.personDrawn) ? '已抽完' : (z.groupDrawn ? '已抽组' : '待抽取');
+  z.statusEl.classList.toggle('hot', z.groupDrawn||z.personDrawn);
+  z.el.classList.toggle('locked', z.groupDrawn&&z.personDrawn);
+  z.el.classList.toggle('got', z.groupDrawn||z.personDrawn);
+  var rt=z.resultText;
+  if(!z.groupDrawn){rt.textContent='点击抽取';rt.className='result-text idle';}
+  else if(!z.personDrawn){rt.textContent=z.group;rt.className='result-text';popText(rt);}
+  else{rt.textContent=z.group+z.person;rt.className='result-text';popText(rt);}
+}
+function updatePool(){
+  var remaining=GROUPS.filter(function(g){
+    return !zones.some(function(o){return (o.groupDrawn && o.group===g) || o.groupReserved===g;});
+  });
+  poolEl.innerHTML = remaining.length
+    ? remaining.map(function(g){return '<span class="pool-chip">'+g+'</span>';}).join('')
+    : '<span class="pool-chip" style="opacity:.55">已全部抽完，可重置</span>';
+}
+
+/* ===== 交互 ===== */
+function selectTape(z,kind){
+  if(z.busy) return;
+  if(kind==='group' && z.groupDrawn){toast('小组已抽，请点「号」纸带抽取号码');return;}
+  if(kind==='person' && z.personDrawn){toast('本区已抽完，点重置可重抽');return;}
+  z.selected=kind;
+  updateTapeSelect(z);
+}
+function boxClick(z){
+  if(z.busy) return;
+  if(z.groupDrawn && z.personDrawn){toast('本区已抽完，点重置可重抽');return;}
+  if(z.selected==='person' && !z.groupDrawn){toast('请先点「组」纸带抽取小组');return;}
+  if(z.selected==='group' && !z.groupDrawn){startDraw(z,'group');return;}
+  if(z.selected==='person' && !z.personDrawn){startDraw(z,'person');return;}
+}
+
+/* ===== 抽取动画 ===== */
+function startDraw(z,kind){
+  var tape=z.tapes[kind];
+  var isGroup=(kind==='group');
+  var value;
+  if(isGroup){
+    var pool=GROUPS.filter(function(g){return !zones.some(function(o){return (o.groupDrawn && o.group===g) || o.groupReserved===g;});});
+    if(!pool.length){toast('小组已抽完，请重置后再抽');return;}
+    value=pool[Math.floor(Math.random()*pool.length)];
+    z.groupReserved=value;
+  }else{
+    value=PERSONS[Math.floor(Math.random()*PERSONS.length)];
+  }
+  z.busy=true;
+  z.el.classList.add('busy');
+  animateDraw(z,tape,isGroup?GROUPS.indexOf(value):PERSONS.indexOf(value),value,isGroup);
+}
+
+function animateDraw(z,tape,idx,value,isGroup){
+  var N=tape.N;
+  var start=tape.offset;
+  var c=(tape.view.clientWidth-CHIP_W)/2;
+  var M=5;                       // 轨道内纸带的循环份数，保证停止时两侧都有内容
+  var Dmin=1.3*N*STEP;           // 至少滚动的距离，保证抽取有"快转"观感
+  var t=null,kk;
+  for(kk=2; kk<=M-2; kk++){
+    var cand=c-(kk*N+idx)*STEP;
+    if(start-cand>=Dmin){t=cand;break;}
+  }
+  if(t===null){t=c-((M-2)*N+idx)*STEP;}
+  var dist=t-start;
+  var dur=REDUCED?480:DRAW_MS;
+  var t0=performance.now();
+  function stepFn(now){
+    var p=Math.min(1,(now-t0)/dur);
+    var e=REDUCED?p:(1-Math.pow(1-p,4));   // easeOutQuart：先快后缓
+    tape.offset=start+dist*e;
+    tape.track.style.transform='translate3d('+tape.offset+'px,0,0)';
+    if(p<1){requestAnimationFrame(stepFn);return;}
+    tape.mode='settled';
+    var g=Math.round((c-tape.offset)/STEP);
+    g=Math.max(0,Math.min(tape.chips.length-1,g));
+    var chip=tape.chips[g];
+    chip.classList.add('chip-hit');
+    setTimeout(function(){
+      if(REDUCED){settle(z,tape,value,isGroup);}
+      else{fly(z,tape,chip,value,isGroup);}
+    },HOLD_MS);
+  }
+  requestAnimationFrame(stepFn);
+}
+
+function fly(z,tape,chip,value,isGroup){
+  var r=chip.getBoundingClientRect();
+  var clone=document.createElement('span');
+  clone.className='fly-chip';
+  clone.textContent=chip.textContent;
+  clone.style.left=r.left+'px';
+  clone.style.top=r.top+'px';
+  clone.style.width=r.width+'px';
+  clone.style.height=r.height+'px';
+  document.body.appendChild(clone);
+  var rr=z.resultText.getBoundingClientRect();
+  var dx=(rr.left+rr.width/2)-(r.left+r.width/2);
+  var dy=(rr.top+rr.height/2)-(r.top+r.height/2);
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      clone.style.transform='translate('+dx+'px,'+dy+'px) scale(1.7)';
+      clone.style.opacity='.15';
+    });
+  });
+  setTimeout(function(){clone.remove();settle(z,tape,value,isGroup);},FLY_MS);
+}
+
+function settle(z,tape,value,isGroup){
+  var i;
+  for(i=0;i<tape.chips.length;i++){tape.chips[i].classList.remove('chip-hit');}
+  if(isGroup){z.group=value;z.groupDrawn=true;z.groupReserved=null;}
+  else{z.person=value;z.personDrawn=true;}
+  tape.mode='idle';
+  tape.el.classList.add('done');
+  z.busy=false;
+  z.el.classList.remove('busy');
+  updateZone(z);
+  updatePool();
+  if(isGroup){
+    z.selected='person';
+    updateTapeSelect(z);
+    toast('抽中 '+value+'，请抽取号码');
+  }else{
+    toast('抽中 '+value);
+  }
+}
+
+/* ===== 重置 ===== */
+function resetZone(z){
+  if(z.busy){toast('抽取中，请稍候');return;}
+  z.group=null;z.person=null;z.groupReserved=null;
+  z.groupDrawn=false;z.personDrawn=false;
+  z.selected='group';
+  ['group','person'].forEach(function(k){
+    var tape=z.tapes[k];
+    tape.el.classList.remove('done');
+    tape.mode='idle';
+  });
+  updateTapeSelect(z);
+  updateZone(z);
+  updatePool();
+  toast(z.name+' 已重置');
+}
+function resetAll(){
+  if(zones.some(function(z){return z.busy;})){toast('抽取中，请稍候');return;}
+  zones.forEach(resetZone);
+  toast('全部重置完成');
+}
+
+/* ===== 渲染 ===== */
+zones.forEach(function(z){
+  var sec=document.createElement('section');
+  sec.className='zone';
+  sec.setAttribute('role','button');
+  sec.setAttribute('aria-label',z.name+'，点击抽取');
+  sec.tabIndex=0;
+  sec.innerHTML=
+    '<header class="zone-head">'+
+      '<h2 class="zone-name">'+z.name+'</h2>'+
+      '<span class="zone-status">待抽取</span>'+
+      '<button type="button" class="btn-reset btn-zone-reset">重置</button>'+
+    '</header>'+
+    '<div class="tapes"></div>'+
+    '<div class="zone-result"><span class="result-text idle">点击抽取</span></div>';
+  z.el=sec;
+  z.statusEl=sec.querySelector('.zone-status');
+  z.resultText=sec.querySelector('.result-text');
+  var tapesWrap=sec.querySelector('.tapes');
+  z.tapes.group=appendTape(tapesWrap,'group',z);
+  z.tapes.person=appendTape(tapesWrap,'person',z);
+  sec.addEventListener('click',function(e){
+    if(e.target.closest('.btn-zone-reset')){resetZone(z);return;}
+    boxClick(z);
+  });
+  sec.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();boxClick(z);}
+  });
+  grid.appendChild(sec);
+  updateTapeSelect(z);
+});
+
+document.getElementById('btnTotal').addEventListener('click',resetAll);
+updateZoneAll();
+function updateZoneAll(){zones.forEach(updateZone);}
+updatePool();
+
+/* ===== 慢速滚动主循环 ===== */
+var last=performance.now();
+function tick(now){
+  var dt=Math.min(48,(now-last)/1000);
+  last=now;
+  if(!REDUCED){
+    zones.forEach(function(z){
+      ['group','person'].forEach(function(k){
+        var tape=z.tapes[k];
+        if(tape.mode==='idle'){
+          tape.offset-=IDLE_SPEED*dt;
+          var loop=tape.N*STEP;
+          if(tape.offset<=-loop){tape.offset+=loop;}
+          tape.track.style.transform='translate3d('+tape.offset+'px,0,0)';
+        }
+      });
+    });
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* 字体加载后无感修正一次（固定 chip 宽度，基本不受影响，仅为稳妥） */
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(function(){
+    zones.forEach(function(z){
+      ['group','person'].forEach(function(k){
+        var tape=z.tapes[k];
+        var loop=tape.N*STEP;
+        while(tape.offset<-loop){tape.offset+=loop;}
+        tape.track.style.transform='translate3d('+tape.offset+'px,0,0)';
+      });
+    });
+  });
+}
+
+})();
+</script>
+</body>
+</html>
