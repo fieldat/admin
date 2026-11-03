@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>两车相遇模拟 · 匀变速直线运动</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='20' width='24' height='15' rx='5' fill='%23E5484D'/%3E%3Crect x='36' y='20' width='24' height='15' rx='5' fill='%232F6FED'/%3E%3Ccircle cx='12' cy='40' r='5.5' fill='%2322262B'/%3E%3Ccircle cx='27' cy='40' r='5.5' fill='%2322262B'/%3E%3Ccircle cx='37' cy='40' r='5.5' fill='%2322262B'/%3E%3Ccircle cx='52' cy='40' r='5.5' fill='%2322262B'/%3E%3C/svg%3E">
+<style>
+/* ===== 基础 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", "Helvetica Neue", sans-serif;
+  background: #F4F5F1;
+  color: #22272E;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; cursor: pointer; }
+input[type=range] { width: 100%; accent-color: #E8890C; }
+
+/* ===== 顶栏 ===== */
+.top {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.top h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.top .sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: #6A7280;
+}
+.status-badge {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #E8EAE4;
+  color: #6A7280;
+  border: 1px solid #DDE0D8;
+  white-space: nowrap;
+  transition: background .25s, color .25s;
+}
+.status-badge.run { background: #E4EDFC; color: #2F6FED; border-color: #C9DBF6; }
+.status-badge.met { background: #FDF0DC; color: #B26B07; border-color: #F3DCAE; }
+.status-badge.stop { background: #ECEEF1; color: #5A6470; border-color: #DBDFE5; }
+
+/* ===== 布局 ===== */
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 12px 16px 32px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.card {
+  background: #FFFFFF;
+  border: 1px solid #E4E6DF;
+  border-radius: 12px;
+  padding: 16px;
+}
+.card h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+/* ===== 参数面板 ===== */
+.panel { display: flex; flex-direction: column; gap: 14px; }
+.car-block {
+  border: 1px solid #E9EBE4;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.car-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.car-head .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.car-a .dot { background: #E5484D; }
+.car-b .dot { background: #2F6FED; }
+.car-block label {
+  font-size: 13px;
+  color: #3D4550;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.car-block .field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: #3D4550;
+}
+.num-input {
+  width: 76px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #22272E;
+  border: 1px solid #D9DCD3;
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: #FFFFFF;
+  text-align: right;
+}
+.num-input:focus { outline: 2px solid rgba(232,137,12,.35); border-color: #E8890C; }
+.read-input { width: 66px; font-size: 13px; font-weight: 700; padding: 3px 4px; text-align: center; }
+.unit { font-size: 12px; color: #8A919B; }
+.car-block label output {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 52px;
+  text-align: right;
+  color: #22272E;
+}
+.hint { font-size: 12px; color: #8A919B; }
+
+/* 模式切换 */
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: #EFF1EB;
+  border-radius: 8px;
+  padding: 4px;
+}
+.seg-btn {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #4A5260;
+  padding: 7px 4px;
+  border-radius: 6px;
+  min-height: 36px;
+}
+.seg-btn.active {
+  background: #FFFFFF;
+  color: #22272E;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(20,30,40,.12);
+}
+
+/* 公式区 */
+.formula-box {
+  border: 1px dashed #D8DCCF;
+  border-radius: 10px;
+  background: #FBFCF8;
+  padding: 12px;
+}
+.formula-box h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #3D4550;
+}
+.formula-box p {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 0;
+  color: #2B313A;
+}
+.formula-box p.eq-a { border-left: 3px solid #E5484D; padding-left: 8px; }
+.formula-box p.eq-b { border-left: 3px solid #2F6FED; padding-left: 8px; }
+.formula-box .pred {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #E9EBE4;
+  font-weight: 600;
+  color: #B26B07;
+}
+.formula-box .pred.none { color: #5A6470; font-weight: 500; }
+
+/* ===== 场景 ===== */
+.stage { padding: 14px; }
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.btn {
+  border: 1px solid #D9DCD3;
+  background: #FFFFFF;
+  color: #333B46;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 9px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { border-color: #B9BEB2; background: #FAFBF7; }
+.btn.primary {
+  background: #E8890C;
+  border-color: #E8890C;
+  color: #FFFFFF;
+  min-width: 118px;
+  justify-content: center;
+}
+.btn.primary:hover { background: #D47B05; border-color: #D47B05; }
+.btn.primary.paused { background: #2F6FED; border-color: #2F6FED; }
+.btn.primary.paused:hover { background: #275FC8; border-color: #275FC8; }
+.speed-seg {
+  margin-left: auto;
+  display: flex;
+  border: 1px solid #D9DCD3;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.sp-btn {
+  border: none;
+  background: #FFFFFF;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A5260;
+  padding: 9px 14px;
+  min-height: 42px;
+}
+.sp-btn + .sp-btn { border-left: 1px solid #E3E5DD; }
+.sp-btn.active { background: #22272E; color: #FFFFFF; }
+
+/* 读数条 */
+.readouts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ro {
+  border: 1px solid #E9EBE4;
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: #FCFDF9;
+}
+.ro span { display: block; font-size: 11px; color: #8A919B; margin-bottom: 2px; }
+.ro b {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ro i { font-style: normal; font-size: 11px; color: #8A919B; margin-left: 3px; }
+.ro.t b { font-size: 20px; color: #B26B07; }
+.ro.a b { color: #E5484D; }
+.ro.b b { color: #2F6FED; }
+
+.canvas-wrap { position: relative; }
+#scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  background: #5F6670;
+}
+.banner {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #E8890C;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 10px 20px;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  white-space: nowrap;
+  animation: pop .35s ease-out;
+}
+@keyframes pop {
+  from { transform: translateX(-50%) scale(.6); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* ===== 图表 ===== */
+.charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.chart-card canvas { display: block; width: 100%; height: auto; }
+.chart-hint { font-size: 12px; color: #8A919B; margin: -8px 0 8px; }
+
+/* ===== 移动端（比例与触控优化） ===== */
+@media (max-width: 767.98px) {
+  main { padding: 10px 12px 28px; gap: 12px; }
+  .card { padding: 12px; border-radius: 10px; }
+  .card h2 { margin-bottom: 10px; }
+  .top { padding: 16px 12px 6px; }
+  .top h1 { font-size: 20px; }
+  .status-badge { font-size: 12px; padding: 5px 10px; }
+  .panel { gap: 12px; }
+  .car-block { padding: 10px; gap: 9px; }
+  .car-head { font-size: 14px; }
+  .hint { font-size: 13px; }
+  /* 数字输入框 16px：避免 iOS 聚焦自动放大页面 */
+  .num-input { font-size: 16px; width: 86px; padding: 7px 8px; }
+  .read-input { font-size: 16px; width: 74px; padding: 5px 4px; }
+  /* 控制条：暂停/重置一行，倍速占满一行，触控热区 ≥44px */
+  .control-bar { flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .btn { flex: 1; justify-content: center; min-height: 44px; padding: 9px 10px; font-size: 14px; }
+  .btn.primary { min-width: 0; }
+  .speed-seg { margin-left: 0; width: 100%; }
+  .sp-btn { flex: 1; min-height: 44px; padding: 9px 4px; font-size: 13px; }
+  .readouts { gap: 6px; margin-bottom: 10px; }
+  .ro { padding: 7px 8px; }
+  .ro b { font-size: 16px; }
+  .ro.t b { font-size: 18px; }
+  .chart-hint { font-size: 13px; margin: -6px 0 6px; }
+}
+
+/* ===== 桌面端 ===== */
+@media (min-width: 768px) {
+  main {
+    grid-template-columns: 282px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .panel { grid-column: 1; grid-row: 1 / span 2; }
+  .stage { grid-column: 2; grid-row: 1; }
+  .charts { grid-column: 2; grid-row: 2; grid-template-columns: 1fr 1fr; }
+  .readouts { grid-template-columns: repeat(5, 1fr); }
+}
+@media (min-width: 1024px) {
+  .top h1 { font-size: 27px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>两车相遇模拟</h1>
+    <p class="sub">匀变速直线运动课堂演示 · 相向相遇 / 同向追及　（人教版必修一 · 第二章）</p>
+  </div>
+  <div class="status-badge" id="statusBadge">待开始</div>
+</header>
+
+<main>
+  <!-- ===== 参数面板 ===== -->
+  <section class="card panel" aria-label="参数设置">
+    <h2>参数设置</h2>
+
+    <div class="seg" id="sceneSeg">
+      <button type="button" class="seg-btn active" data-scene="headon">相向相遇</button>
+      <button type="button" class="seg-btn" data-scene="chase">同向追及</button>
+    </div>
+    <p class="hint" id="sceneHint">车 A 在左端，车 B 在右端，相向行驶</p>
+
+    <div class="car-block car-a">
+      <div class="car-head"><span class="dot"></span>车 A · 匀变速 或 匀速</div>
+      <div class="field"><span>初速度 v<sub>A0</sub></span><input type="number" id="vA0" class="num-input" min="0" max="20" step="0.5" value="10"><span class="unit">m/s</span></div>
+      <div class="field"><span>加速度 a<sub>A</sub></span><input type="number" id="aA" class="num-input" min="-6" max="6" step="0.5" value="-2"><span class="unit">m/s²</span></div>
+      <p class="hint">速度减到 0 后停止，不反向运动</p>
+    </div>
+
+    <div class="car-block car-b">
+      <div class="car-head"><span class="dot"></span>车 B · 匀变速 或 匀速</div>
+      <div class="field"><span>初速度 v<sub>B</sub></span><input type="number" id="vB0" class="num-input" min="0" max="20" step="0.5" value="0"><span class="unit">m/s</span></div>
+      <div class="field"><span>加速度 a<sub>B</sub></span><input type="number" id="aB" class="num-input" min="-6" max="6" step="0.5" value="2"><span class="unit">m/s²</span></div>
+      <p class="hint">初速度与加速度均可调节；加速度调为 0 即为匀速</p>
+    </div>
+
+    <div class="car-block">
+      <div class="field"><span>初始间距 L</span><input type="number" id="gapL" class="num-input" min="30" max="200" step="5" value="100"><span class="unit">m</span></div>
+      <p class="hint" id="gapHint">两车出发时的距离（车 A 在左端，车 B 在右端）</p>
+    </div>
+
+    <div class="formula-box">
+      <h3>运动方程与预判</h3>
+      <p class="eq-a" id="eqA"></p>
+      <p class="eq-a" id="eqvA"></p>
+      <p class="eq-b" id="eqB"></p>
+      <p class="eq-b" id="eqvB"></p>
+      <p class="pred" id="pred"></p>
+    </div>
+  </section>
+
+  <!-- ===== 模拟场景 ===== -->
+  <section class="card stage" aria-label="模拟场景">
+    <div class="control-bar">
+      <button type="button" class="btn primary" id="playBtn">开始</button>
+      <button type="button" class="btn" id="resetBtn">重置</button>
+      <div class="speed-seg" id="speedSeg">
+        <button type="button" class="sp-btn" data-sp="0.25">0.25×</button>
+        <button type="button" class="sp-btn" data-sp="0.5">0.5×</button>
+        <button type="button" class="sp-btn" data-sp="0.75">0.75×</button>
+        <button type="button" class="sp-btn active" data-sp="1">1×</button>
+      </div>
+    </div>
+
+    <div class="readouts">
+      <div class="ro t"><span>时间 t</span><input type="number" id="rt" class="num-input read-input" value="0" step="0.01"><i>s</i></div>
+      <div class="ro a"><span>车A 位置 x</span><input type="number" id="rxA" class="num-input read-input" value="0" step="0.1"><i>m</i></div>
+      <div class="ro a"><span>车A 速度 v</span><input type="number" id="rvA" class="num-input read-input" value="10" step="0.1"><i>m/s</i></div>
+      <div class="ro b"><span>车B 位置 x</span><input type="number" id="rxB" class="num-input read-input" value="100" step="0.1"><i>m</i></div>
+      <div class="ro b"><span>车B 速度 v</span><input type="number" id="rvB" class="num-input read-input" value="0" step="0.1"><i>m/s</i></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="scene" height="330"></canvas>
+      <div class="banner" id="banner" hidden></div>
+    </div>
+  </section>
+
+  <!-- ===== 图像 ===== -->
+  <section class="charts">
+    <div class="card chart-card">
+      <h2>x–t 图像（位移–时间）</h2>
+      <p class="chart-hint">位移 x 以 A 车初始位置为原点，水平向右为正方向</p>
+      <canvas id="xtChart" height="340"></canvas>
+    </div>
+    <div class="card chart-card">
+      <h2>v–t 图像（速度–时间）</h2>
+      <p class="chart-hint" id="vtHint">车 B 向左运动，速度取负值</p>
+      <canvas id="vtChart" height="340"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ===== 元素引用 ===== */
+const els = {
+  vA0: $('vA0'), aA: $('aA'), aB: $('aB'), vB0: $('vB0'), gapL: $('gapL'),
+  sceneSeg: $('sceneSeg'), sceneHint: $('sceneHint'),
+  eqA: $('eqA'), eqvA: $('eqvA'), eqB: $('eqB'), eqvB: $('eqvB'), pred: $('pred'),
+  gapHint: $('gapHint'), vtHint: $('vtHint'),
+  playBtn: $('playBtn'), resetBtn: $('resetBtn'), speedSeg: $('speedSeg'),
+  rt: $('rt'), rxA: $('rxA'), rvA: $('rvA'), rxB: $('rxB'), rvB: $('rvB'),
+  statusBadge: $('statusBadge'), banner: $('banner'),
+  scene: $('scene'), xtChart: $('xtChart'), vtChart: $('vtChart')
+};
+
+/* ===== 状态 ===== */
+const CAR_LEN = 4;   // 仅用于车身视觉绘制；相遇/追及判定忽略车长，严格按运动方程（xA = xB）
+const T_MAX   = 90;  // 模拟上限 s
+const H       = 0.02;// 物理步长 s
+
+const S = {
+  scene: 'headon',     // headon 相向相遇 | chase 同向追及
+  vA0: 10, aA: -2, aB: 2, vB0: 8, L: 100,
+  t: 0,
+  playing: false,
+  speed: 1,
+  met: false,
+  done: false,
+  phase: 'idle',     // idle | run | met | nostop
+  xA: 0, vA: 10, xB: 100, vB: 0,
+  series: [],
+  pickXT: null,   // 点击 x-t 图线选中的点 {t, val, color}
+  pickVT: null    // 点击 v-t 图线选中的点 {t, val, color}
+};
+
+/* ===== 数值格式化 ===== */
+const num = x => parseFloat(x.toFixed(2)).toString();
+
+/* 数值钳制：非法或越界输入回退到边界 */
+function clampNum(raw, min, max, dft) {
+  const v = parseFloat(raw);
+  if (!isFinite(v)) return dft;
+  return Math.max(min, Math.min(max, v));
+}
+
+/* 多项式字符串：v0·t + (a/2)·t²，返回 {pos: '10t − t²', lin: '10 − 2t'} */
+function polyStr(v0, a) {
+  const fmt = (c, sfx, first) => {
+    if (Math.abs(c) < 1e-9) return '';
+    const sign = c < 0 ? '-' : (first ? '' : '+');
+    const absC = Math.abs(c);
+    const coef = Math.abs(absC - 1) < 1e-9 ? '' : num(absC);
+    return (first && c > 0 ? '' : sign + ' ') + coef + sfx;
+  };
+  const c2 = a / 2;
+  const pos = (fmt(v0, 't', true) + ' ' + fmt(c2, 't²', v0 === 0)).replace(/\s+/g, ' ').trim() || '0';
+  const lin = (fmt(v0, '', true) + ' ' + fmt(a, 't', v0 === 0)).replace(/\s+/g, ' ').trim() || '0';
+  return { pos, lin };
+}
+
+/* ===== 参数读取与重算 ===== */
+function readParams() {
+  S.vA0 = clampNum(els.vA0.value, 0, 20, 10);
+  S.aA  = clampNum(els.aA.value, -6, 6, -2);
+  S.L   = clampNum(els.gapL.value, 30, 200, 100);
+  S.vB0 = clampNum(els.vB0.value, 0, 20, 0);
+  S.aB = clampNum(els.aB.value, -6, 6, 2);
+}
+
+/* 场景独立默认参数与记忆：相向相遇 A 在左 B 在右；同向追及 A（快、匀减速）在后追 B（慢、匀加速/匀速）在前 */
+const sceneDefaults = {
+  headon: { vA0: 10, aA: -2, vB0: 0, aB: 2, L: 100 },
+  chase:  { vA0: 20, aA: -2, vB0: 0, aB: 2, L: 40 }
+};
+const sceneParamMem = {};
+function saveSceneParams() {
+  sceneParamMem[S.scene] = {
+    vA0: clampNum(els.vA0.value, 0, 20, 10),
+    aA:  clampNum(els.aA.value, -6, 0, -2),
+    vB0: clampNum(els.vB0.value, 0, 20, 0),
+    aB:  clampNum(els.aB.value, 0, 6, 2),
+    L:   clampNum(els.gapL.value, 30, 200, 100)
+  };
+}
+function applySceneParams(scene) {
+  const m = sceneParamMem[scene] || sceneDefaults[scene];
+  els.vA0.value = m.vA0; els.aA.value = m.aA;
+  els.vB0.value = m.vB0; els.aB.value = m.aB;
+  els.gapL.value = m.L;
+}
+
+/* ===== 理论预判（数值扫掠，与动画同一物理口径） ===== */
+/* 位置函数（含停靠：速度到 0 后不再前进） */
+function posA(t) {
+  const { vA0, aA } = S;
+  if (aA < 0 && vA0 > 0) {
+    const ts = vA0 / Math.abs(aA);
+    return t >= ts ? vA0 * vA0 / (2 * Math.abs(aA)) : vA0 * t + 0.5 * aA * t * t;
+  }
+  return vA0 * t + 0.5 * aA * t * t;
+}
+function posB(t) {
+  const { vB0, aB, L } = S;
+  const chase = S.scene === 'chase';
+  let s;
+  if (aB < 0 && vB0 > 0) {
+    const ts = vB0 / Math.abs(aB);
+    const smax = vB0 * vB0 / (2 * Math.abs(aB));
+    s = t >= ts ? smax : vB0 * t + 0.5 * aB * t * t;
+  } else {
+    s = vB0 * t + 0.5 * aB * t * t;
+  }
+  return chase ? L + s : L - s;
+}
+
+/* 找首次 xA >= xB 的时刻并线性插值精化 */
+function predictMeet() {
+  const { vA0, aA, vB0, aB } = S;
+  if (vA0 <= 1e-9 && Math.abs(aA) < 1e-9 && vB0 <= 1e-9 && Math.abs(aB) < 1e-9) {
+    return { meet: false, reason: '静止' };
+  }
+  const n = Math.ceil(T_MAX / H) + 1;
+  for (let i = 0; i <= n; i++) {
+    const tCur = i * H;
+    const a = posA(tCur), b = posB(tCur);
+    if (a >= b - 1e-9) {
+      if (i === 0) return { meet: true, t: 0, x: a };
+      const tPrev = (i - 1) * H;
+      const f0 = posA(tPrev) - posB(tPrev), f1 = a - b;
+      const tt = f1 - f0 > 1e-12 ? tPrev + (f0 / (f0 - f1)) * H : tPrev;
+      return { meet: true, t: tt, x: posA(tt) };
+    }
+  }
+  return { meet: false, reason: '未遇' };
+}
+function calcPredict() {
+  return predictMeet();
+}
+
+/* ===== 公式与预判显示 ===== */
+function renderFormulas() {
+  const { vA0, aA, vB0, aB, L } = S;
+  const chase = S.scene === 'chase';
+  els.sceneHint.textContent = chase
+    ? '车 A 在后（左端）追车 B，车 B 在前（右端），同向行驶'
+    : '车 A 在左端，车 B 在右端，相向行驶';
+  els.gapHint.textContent = chase
+    ? 'L 为两车初始距离（车 A 在后追车 B）'
+    : '两车出发时的距离（车 A 在左端，车 B 在右端）';
+  els.vtHint.textContent = chase ? '两车同向运动，速度均为正' : '车 B 向左运动，速度取负值';
+  const pA = polyStr(vA0, aA);
+  const pB = polyStr(vB0, aB);
+  if (chase) {
+    els.eqA.innerHTML  = 'x<sub>A</sub>(t) = ' + (pA.pos === '0' ? '0' : pA.pos);
+    els.eqB.innerHTML  = 'x<sub>B</sub>(t) = ' + num(L) + (pB.pos === '0' ? '' : ' + ' + pB.pos);
+    els.eqvB.innerHTML = 'v<sub>B</sub>(t) = ' + pB.lin;
+  } else {
+    els.eqA.innerHTML  = 'x<sub>A</sub>(t) = ' + pA.pos;
+    let eqB;
+    if (pB.pos === '0') eqB = num(L);
+    else if (pB.pos.indexOf('+') < 0) eqB = num(L) + ' − ' + pB.pos;
+    else eqB = num(L) + ' − (' + pB.pos + ')';
+    els.eqB.innerHTML  = 'x<sub>B</sub>(t) = ' + eqB;
+    els.eqvB.innerHTML = 'v<sub>B</sub>(t) = ' + pB.lin + '（向左）';
+  }
+  els.eqvA.innerHTML = 'v<sub>A</sub>(t) = ' + pA.lin;
+
+  const pr = calcPredict();
+  if (pr.meet) {
+    els.pred.textContent = (chase ? '预计追及' : '预计相遇') + '：t ≈ ' + num(pr.t) + ' s，位置 x ≈ ' + num(pr.x) + ' m';
+    els.pred.className = 'pred';
+  } else {
+    els.pred.textContent = pr.reason === '静止'
+      ? '此参数下两车均静止，不会' + (chase ? '追及' : '相遇')
+      : '此参数下两车不会' + (chase ? '追及' : '相遇');
+    els.pred.className = 'pred none';
+  }
+}
+
+/* ===== 重置 ===== */
+function reset() {
+  readParams();
+  S.t = 0;
+  S.vA = S.vA0; S.vB = S.vB0;
+  S.xA = 0; S.xB = S.L;   // headon: A 左端 B 右端；chase: A 在后（左端）追 B 在前（右端）
+  S.met = false;
+  S.done = false;
+  S.playing = false;
+  S.phase = 'idle';
+  S.series = [];
+  S.pickXT = null; S.pickVT = null;
+  els.banner.hidden = true;
+  els.playBtn.textContent = '开始';
+  els.playBtn.classList.remove('paused');
+  setBadge('idle');
+  updateReadouts();
+  renderFormulas();
+  drawScene();
+  drawCharts();
+}
+
+function setBadge(phase) {
+  const b = els.statusBadge;
+  b.className = 'status-badge';
+  if (phase === 'run') { b.classList.add('run'); b.textContent = '行驶中'; }
+  else if (phase === 'met') { b.classList.add('met'); b.textContent = '相遇'; }
+  else if (phase === 'nostop') { b.classList.add('stop'); b.textContent = '不相遇'; }
+  else if (phase === 'pause') { b.classList.add('stop'); b.textContent = '已暂停'; }
+  else b.textContent = '待开始';
+}
+
+/* ===== 物理步进 ===== */
+function step() {
+  const { vA0, aA, vB0, aB, L } = S;
+  const chase = S.scene === 'chase';
+  S.t += H;
+  S.vA = Math.max(0, vA0 + aA * S.t);
+  if (aA < 0 && S.t >= vA0 / Math.abs(aA)) {
+    S.xA = vA0 * vA0 / (2 * Math.abs(aA));
+  } else {
+    S.xA = vA0 * S.t + 0.5 * aA * S.t * S.t;
+  }
+  S.vB = Math.max(0, vB0 + aB * S.t);
+  const tStopB = (vB0 > 0 && aB < 0) ? vB0 / Math.abs(aB) : Infinity;
+  const sB = (tStopB !== Infinity && S.t >= tStopB)
+    ? vB0 * vB0 / (2 * Math.abs(aB))
+    : vB0 * S.t + 0.5 * aB * S.t * S.t;
+  S.xB = chase ? L + sB : L - sB;
+
+  if (!S.met && S.xA >= S.xB) {
+    meet();
+    return;
+  }
+  if (!S.met && S.vA <= 1e-9 && S.vB <= 1e-9) {
+    noStop();
+    return;
+  }
+  if (S.t >= T_MAX) {
+    noStop();
+    return;
+  }
+  S.series.push({ t: S.t, xA: S.xA, vA: S.vA, xB: S.xB, vB: S.vB });
+}
+
+function meet() {
+  S.met = true; S.done = true; S.playing = false; S.phase = 'met';
+  S.series.push({ t: S.t, xA: S.xA, vA: S.vA, xB: S.xB, vB: S.vB });
+  const chase = S.scene === 'chase';
+  const xm = S.xA;
+  els.banner.textContent = (chase ? '追及！' : '相遇！') + ' t = ' + num(S.t) + ' s，x ≈ ' + num(xm) + ' m';
+  els.banner.hidden = false;
+  els.playBtn.textContent = '开始';
+  els.playBtn.classList.remove('paused');
+  setBadge('met');
+}
+
+function noStop() {
+  S.done = true; S.playing = false; S.phase = 'nostop';
+  S.series.push({ t: S.t, xA: S.xA, vA: S.vA, xB: S.xB, vB: S.vB });
+  els.playBtn.textContent = '开始';
+  els.playBtn.classList.remove('paused');
+  setBadge('nostop');
+}
+
+/* ===== 播放控制 ===== */
+function togglePlay() {
+  if (S.done) reset();
+  S.playing = !S.playing;
+  if (S.playing) {
+    S.phase = 'run';
+    els.playBtn.textContent = '暂停';
+    els.playBtn.classList.add('paused');
+    setBadge('run');
+  } else {
+    els.playBtn.textContent = '开始';
+    els.playBtn.classList.remove('paused');
+    if (!S.done) setBadge('pause');
+  }
+}
+
+// [[PART1_END]]
+/* ===== Canvas 工具 ===== */
+const DPR = () => window.devicePixelRatio || 1;
+const sceneC = { ctx: null, w: 0, h: 0, carPx: 0, pxPerM: 0 };
+const xtC = { ctx: null, w: 0, h: 0 };
+const vtC = { ctx: null, w: 0, h: 0 };
+
+function setupCanvas(cv, cache, cssH) {
+  const dpr = DPR();
+  const w = Math.max(60, cv.clientWidth);
+  cv.width = Math.round(w * dpr);
+  cv.height = Math.round(cssH * dpr);
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cache.ctx = ctx; cache.w = w; cache.h = cssH;
+}
+
+function rrect(x, y, w, h, r) {
+  const ctx = sceneC.ctx;
+  const rr = Math.min(r, w / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+/* 自适应刻度：在 [lo, hi] 内取约 n 个整齐的刻度值 */
+function niceTicks(lo, hi, n) {
+  const raw = (hi - lo) / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+  const ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v);
+  return ticks;
+}
+function fmtTick(v) {
+  const r = Math.round(v * 10) / 10;
+  return String(r).replace(/\.0$/, '');
+}
+
+/* ===== 场景绘制 ===== */
+function drawScene() {
+  const { ctx, w, h } = sceneC;
+  ctx.clearRect(0, 0, w, h);
+  /* 天空 */
+  const sky = ctx.createLinearGradient(0, 0, 0, 70);
+  sky.addColorStop(0, '#E4EBF6');
+  sky.addColorStop(1, '#C7D7EA');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, 70);
+  ctx.fillStyle = 'rgba(40,50,60,.16)';
+  ctx.fillRect(0, 68, w, 2);
+  /* 路面 */
+  ctx.fillStyle = '#5F6670';
+  ctx.fillRect(0, 70, w, h - 70);
+  /* 路肩 */
+  ctx.fillStyle = '#8FB573';
+  ctx.fillRect(0, 70, w, 8);
+  ctx.fillRect(0, h - 26, w, 8);
+  /* 视口：初始完整轨道 [0, L]，之后跟随两车移动，保证两车始终在画面内 */
+  const pad = 36;
+  const m = 14;   // 视口边距 m
+  let xLo, xHi;
+  if (S.series.length === 0 && !S.met) {
+    xLo = -m; xHi = S.L + m;
+  } else {
+    xLo = Math.min(S.xA, S.xB) - m;
+    xHi = Math.max(S.xA, S.xB) + m;
+  }
+  let span = Math.max(40, xHi - xLo);
+  if (xHi - xLo < span) { const cx = (xLo + xHi) / 2; xLo = cx - span / 2; xHi = cx + span / 2; }
+  const pxPerM = (w - 2 * pad) / span;
+  sceneC.pxPerM = pxPerM;
+
+  /* 云朵（世界坐标，随视口滚动） */
+  ctx.fillStyle = 'rgba(255,255,255,.72)';
+  for (let cx = Math.floor(xLo / 42) * 42; cx <= xHi; cx += 42) {
+    const x = pad + (cx - xLo) * pxPerM;
+    if (x < -70 || x > w + 70) continue;
+    const cy = 26 + ((cx * 7) % 20);
+    ctx.beginPath();
+    ctx.ellipse(x, cy, 24, 9, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 15, cy + 3, 17, 7, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 16, cy + 3, 15, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* 路旁小树（世界坐标，随视口滚动） */
+  for (let cx = Math.floor(xLo / 46) * 46; cx <= xHi; cx += 46) {
+    const x = pad + (cx - xLo) * pxPerM;
+    if (x < -40 || x > w + 40) continue;
+    ctx.fillStyle = '#6B4A2F';
+    ctx.fillRect(x - 2.5, 57, 5, 11);
+    ctx.fillStyle = '#79A468';
+    ctx.beginPath(); ctx.arc(x, 51, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8FBE78';
+    ctx.beginPath(); ctx.arc(x + 3, 48, 7, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 车道中线虚线 */
+  ctx.strokeStyle = 'rgba(255,255,255,.26)';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([12, 15]);
+  ctx.beginPath(); ctx.moveTo(0, 103); ctx.lineTo(w, 103); ctx.stroke();
+  ctx.setLineDash([]);
+  /* 运动轨迹虚线（世界坐标：A 从 x=0 出发，B 从 x=L 出发） */
+  if (S.series.length > 0 || S.met) {
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([7, 7]);
+    ctx.strokeStyle = 'rgba(229,72,77,.5)';
+    ctx.beginPath();
+    ctx.moveTo(pad + (0 - xLo) * pxPerM, 226);
+    ctx.lineTo(pad + (S.xA - xLo) * pxPerM, 226);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(47,111,237,.5)';
+    ctx.beginPath();
+    ctx.moveTo(pad + (S.L - xLo) * pxPerM, 226);
+    ctx.lineTo(pad + (S.xB - xLo) * pxPerM, 226);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* 自适应比例尺刻度 */
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  for (const xm of niceTicks(xLo, xHi, 5)) {
+    const x = pad + (xm - xLo) * pxPerM;
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, h - 26); ctx.lineTo(x, h - 18); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.fillText(fmtTick(xm) + 'm', x, h - 7);
+  }
+  /* 坐标原点：A 车初始位置 x = 0，水平向右为正 */
+  if (0 >= xLo && 0 <= xHi) {
+    const x0 = pad + (0 - xLo) * pxPerM;
+    ctx.strokeStyle = 'rgba(255,214,130,.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(x0, 70); ctx.lineTo(x0, h - 18); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,214,130,.95)';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('原点 x=0', x0, 82);
+  }
+  /* 距离标注 */
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,.88)';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('L = ' + Math.round(S.L) + ' m', 10, 90);
+  /* 车（同一直道：相向迎面 或 同向追及） */
+  const carPx = Math.max(30, Math.min(60, CAR_LEN * pxPerM));
+  sceneC.carPx = carPx;
+  const aPx = pad + (S.xA - xLo) * pxPerM;
+  const bPx = pad + (S.xB - xLo) * pxPerM;
+  const dirB = S.scene === 'chase' ? 1 : -1;
+  const hCar = carPx * 0.5;
+  drawCar(aPx, 213, 1, '#E5484D', S.aA, S.xA * pxPerM / (hCar * 0.17));
+  drawCar(bPx, 213, dirB, '#2F6FED', S.aB, Math.abs(S.xB - S.L) * pxPerM / (hCar * 0.17));
+  /* 速度矢量箭头与数值（箭头长度 ∝ 速度大小，方向为运动方向） */
+  const yArr = 213 - carPx * 1.32;
+  const drawArrow = (px, dir, v, col, label, dy) => {
+    const len = Math.min(54, Math.max(13, v * pxPerM * 0.85));
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(px, yArr); ctx.lineTo(px + dir * len, yArr); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(px + dir * len, yArr - 5);
+    ctx.lineTo(px + dir * (len + 8), yArr);
+    ctx.lineTo(px + dir * len, yArr + 5);
+    ctx.closePath(); ctx.fill();
+    ctx.font = 'bold 11px sans-serif';
+    if (dir > 0) { ctx.textAlign = 'left'; ctx.fillText(label, px + len + 12, yArr + dy); }
+    else { ctx.textAlign = 'right'; ctx.fillText(label, px - len - 12, yArr + dy); }
+  };
+  drawArrow(aPx, 1, S.vA, '#FF6B6E', num(S.vA) + ' m/s', 4);
+  drawArrow(bPx, dirB, S.vB, '#5B8DEF', num(S.vB) + ' m/s', 14);
+  /* 相遇/追及标记（headon：车头对车头；chase：A 车头触及 B 车尾） */
+  if (S.met) {
+    const x = pad + (S.xA - xLo) * pxPerM;
+    ctx.strokeStyle = 'rgba(232,137,12,.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath(); ctx.moveTo(x, 70); ctx.lineTo(x, h - 26); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#E8890C';
+    ctx.beginPath(); ctx.arc(x, 78, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('相遇', x, 64);
+  }
+}
+
+function drawCar(x, groundY, dir, color, accel, wheelAngle) {
+  const ctx = sceneC.ctx;
+  const w = sceneC.carPx, h = w * 0.5;
+  ctx.save();
+  if (dir < 0) ctx.translate(x + w, 0);
+  else ctx.translate(x - w, 0);
+  if (dir < 0) ctx.scale(-1, 1);
+  /* 加减速光效：加速时车头（运动方向）前灯光晕加强 */
+  if (accel > 1e-9) {
+    ctx.fillStyle = 'rgba(255,214,90,.38)';
+    ctx.beginPath(); ctx.arc(w, groundY - h * 0.8, h * 0.62, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 底盘阴影 */
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  rrect(w * 0.02, groundY - h * 0.05, w * 0.96, h * 0.1, 3);
+  /* 后车厢（皮卡货斗） */
+  ctx.fillStyle = shade(color, -12);
+  rrect(w * 0.04, groundY - h * 0.6, w * 0.36, h * 0.5, 3);
+  ctx.fillStyle = shade(color, -24);
+  rrect(w * 0.04, groundY - h * 0.6, w * 0.36, h * 0.1, 3);
+  /* 主车身（车头侧） */
+  ctx.fillStyle = shade(color, -5);
+  rrect(w * 0.32, groundY - h * 0.86, w * 0.58, h * 0.76, 5);
+  /* 引擎盖高光 */
+  ctx.fillStyle = shade(color, 16);
+  rrect(w * 0.32, groundY - h * 0.86, w * 0.58, h * 0.13, 4);
+  /* 驾驶室（前倾挡风玻璃） */
+  ctx.fillStyle = color;
+  rrect(w * 0.4, groundY - h * 1.22, w * 0.3, h * 0.5, 4);
+  ctx.fillStyle = '#D6E7F7';
+  ctx.beginPath();
+  ctx.moveTo(w * 0.62, groundY - h * 1.16);
+  ctx.lineTo(w * 0.7, groundY - h * 1.16);
+  ctx.lineTo(w * 0.72, groundY - h * 0.9);
+  ctx.lineTo(w * 0.6, groundY - h * 0.9);
+  ctx.closePath(); ctx.fill();
+  /* 侧窗 */
+  ctx.fillStyle = '#B9D4EC';
+  rrect(w * 0.44, groundY - h * 1.08, w * 0.1, h * 0.18, 2);
+  /* 车门轮廓线 */
+  ctx.strokeStyle = 'rgba(0,0,0,.14)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.5, groundY - h * 0.86);
+  ctx.lineTo(w * 0.5, groundY - h * 0.14);
+  ctx.stroke();
+  /* 车头前脸（皮卡） */
+  ctx.fillStyle = shade(color, 8);
+  rrect(w * 0.84, groundY - h * 0.56, w * 0.16, h * 0.46, 3);
+  /* 格栅 */
+  ctx.fillStyle = '#2A2F35';
+  rrect(w * 0.9, groundY - h * 0.5, w * 0.09, h * 0.17, 2);
+  /* 保险杠 */
+  ctx.fillStyle = '#3A4047';
+  rrect(w * 0.95, groundY - h * 0.3, w * 0.05, h * 0.15, 2);
+  /* 车轮（随行驶距离旋转的轮辐） */
+  for (const fx of [w * 0.17, w * 0.78]) {
+    ctx.fillStyle = '#22262B';
+    ctx.beginPath(); ctx.arc(fx, groundY - h * 0.13, h * 0.17, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#9AA2AB';
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < 2; k++) {
+      const a = wheelAngle + k * Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(fx - Math.cos(a) * h * 0.12, groundY - h * 0.13 - Math.sin(a) * h * 0.12);
+      ctx.lineTo(fx + Math.cos(a) * h * 0.12, groundY - h * 0.13 + Math.sin(a) * h * 0.12);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#4A525C';
+    ctx.beginPath(); ctx.arc(fx, groundY - h * 0.13, h * 0.055, 0, Math.PI * 2); ctx.fill();
+  }
+  /* 车头灯（运动方向侧恒亮：车 A 向右 → 右灯亮；车 B 相向向左 → 翻转后仍为车头侧） */
+  ctx.fillStyle = 'rgba(255,238,150,.5)';
+  ctx.beginPath(); ctx.arc(w * 0.9, groundY - h * 0.64, h * 0.24, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#FFF2B0';
+  rrect(w * 0.87, groundY - h * 0.72, h * 0.12, h * 0.16, 2);
+  /* 尾灯（常态） */
+  ctx.fillStyle = '#F2B8A8';
+  rrect(-h * 0.04, groundY - h * 0.56, h * 0.1, h * 0.14, 2);
+  ctx.restore();
+}
+
+/* ===== 读数 ===== */
+function setVal(el, v) { if (document.activeElement !== el) el.value = v; }
+function updateReadouts() {
+  setVal(els.rt, S.t.toFixed(2));
+  setVal(els.rxA, num(S.xA));
+  setVal(els.rvA, num(S.vA));
+  setVal(els.rxB, num(S.xB));
+  setVal(els.rvB, num(S.vB));
+}
+
+/* ===== 读数反解跳转 ===== */
+/* 由某读数反解时刻 t；无解返回 null */
+function solveTFor(key, val) {
+  const { vA0, aA, vB0, aB, L } = S;
+  const headon = S.scene !== 'chase';
+  switch (key) {
+    case 'rt':
+      return Math.max(0, val);
+    case 'rxA': {
+      if (val < -1e-9) return null;
+      /* aA<0 且 vA0>0：A 停靠分支 */
+      if (aA < 0 && vA0 > 0) {
+        const tStopA = vA0 / Math.abs(aA);
+        const xAmax = vA0 * vA0 / (2 * Math.abs(aA));
+        if (val >= xAmax - 1e-9) return tStopA;
+      }
+      if (Math.abs(aA) < 1e-9) {
+        if (vA0 > 1e-9) return val / vA0 >= -1e-9 ? val / vA0 : null;
+        return val <= 1e-9 ? 0 : null;
+      }
+      const disc = vA0 * vA0 + 2 * aA * val;
+      if (disc < 0) return null;
+      const t = (-vA0 + Math.sqrt(disc)) / aA;
+      return t >= -1e-9 ? t : null;
+    }
+    case 'rvA': {
+      if (val < -1e-9) return null;
+      if (Math.abs(aA) < 1e-9) return Math.abs(val - vA0) < 1e-9 ? 0 : null;
+      const t = (val - vA0) / aA;
+      return t >= -1e-9 ? t : null;
+    }
+    case 'rxB': {
+      const sTarget = headon ? L - val : val - L;
+      if (sTarget < -1e-9) return null;
+      if (sTarget <= 1e-9) return 0;
+      if (aB < 0 && vB0 > 0) {
+        const tStopB = vB0 / Math.abs(aB);
+        const sMax = vB0 * vB0 / (2 * Math.abs(aB));
+        if (sTarget >= sMax - 1e-9) return tStopB;
+      }
+      if (Math.abs(aB) < 1e-9) return vB0 > 1e-9 ? sTarget / vB0 : null;
+      const disc = vB0 * vB0 + 2 * aB * sTarget;
+      if (disc < 0) return null;
+      const t = (-vB0 + Math.sqrt(disc)) / aB;
+      return t >= -1e-9 ? t : null;
+    }
+    case 'rvB': {
+      if (val < -1e-9) return null;
+      if (Math.abs(aB) < 1e-9) return Math.abs(val - vB0) < 1e-9 ? 0 : null;
+      const t = (val - vB0) / aB;
+      return t >= -1e-9 ? t : null;
+    }
+  }
+  return null;
+}
+
+/* 跳到指定时刻：从 t=0 按物理步进重建状态与曲线 */
+function jumpToT(t) {
+  if (!(t > 0)) t = 0;
+  if (t > T_MAX) t = T_MAX;
+  readParams();
+  S.t = 0; S.xA = 0; S.xB = S.L; S.vA = S.vA0; S.vB = S.vB0;
+  S.met = false; S.done = false; S.phase = 'idle';
+  S.series = [];
+  els.banner.hidden = true;
+  const n = Math.round(t / H);
+  for (let i = 0; i < n && !S.done; i++) step();
+  S.playing = false;
+  els.playBtn.textContent = '开始';
+  els.playBtn.classList.remove('paused');
+  setBadge(S.phase);
+  updateReadouts();
+  renderFormulas();
+  drawScene();
+  drawCharts();
+}
+
+/* ===== 图表通用 ===== */
+const CH = { l: 62, r: 14, t: 18, b: 34 };
+
+function chartBase(cv) {
+  const ctx = cv.getContext('2d');
+  const w = cv.clientWidth, h = parseInt(cv.getAttribute('height'), 10);
+  const dpr = DPR();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#FCFDF9';
+  ctx.fillRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+
+function gridAndAxes(ctx, w, h, xMax, yMin, yMax, xLabel, yLabel, yFmt) {
+  const px = t => CH.l + (t / xMax) * (w - CH.l - CH.r);
+  const py = v => h - CH.b - ((v - yMin) / (yMax - yMin)) * (h - CH.t - CH.b);
+  ctx.strokeStyle = '#E4E7DE';
+  ctx.lineWidth = 1;
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#8A919B';
+  for (let i = 0; i <= 4; i++) {
+    const x = px(xMax * i / 4);
+    ctx.beginPath(); ctx.moveTo(x, CH.t); ctx.lineTo(x, h - CH.b); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillText(num(xMax * i / 4), x, h - CH.b + 16);
+  }
+  for (let i = 0; i <= 4; i++) {
+    const v = yMin + (yMax - yMin) * i / 4;
+    const y = py(v);
+    ctx.beginPath(); ctx.moveTo(CH.l, y); ctx.lineTo(w - CH.r, y); ctx.stroke();
+    ctx.textAlign = 'right';
+    ctx.fillText(yFmt(v), CH.l - 6, y + 4);
+  }
+  /* 坐标轴标签 */
+  ctx.fillStyle = '#6A7280';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(xLabel, w - CH.r - 20, h - 8);
+  ctx.save();
+  ctx.translate(16, (CH.t + h - CH.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+  return { px, py };
+}
+
+function drawLegend(ctx, w, items) {
+  let x = w - CH.r - 8;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const it = items[i];
+    const tw = ctx.measureText(it.label).width + 34;
+    x -= tw;
+    ctx.fillStyle = it.color;
+    ctx.fillRect(x, CH.t + 2, 16, 3);
+    ctx.fillStyle = '#3D4550';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(it.label, x + 20, CH.t + 7);
+  }
+}
+
+/* ===== x–t 图 ===== */
+/* 在序列中找某量首次穿越 0（含起点为 0）的交点，线性插值 */
+function axisCross(series, getVal) {
+  if (!series.length) return null;
+  let prev = getVal(series[0]);
+  if (Math.abs(prev) < 1e-9) return { t: 0, v: 0 };
+  for (let i = 1; i < series.length; i++) {
+    const cur = getVal(series[i]);
+    if (prev * cur < 0 || Math.abs(cur) < 1e-9) {
+      const f = prev / (prev - cur);
+      return { t: series[i - 1].t + (series[i].t - series[i - 1].t) * f, v: 0 };
+    }
+    prev = cur;
+  }
+  return null;
+}
+
+/* 绘制曲线与坐标轴的交点小圆点 + 坐标文本（自动避让画布边缘） */
+function drawAxisPoint(ctx, g, w, t, val, color) {
+  const px = g.px(t), py = g.py(val);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
+  const label = '(' + num(t) + ', ' + num(val) + ')';
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = px > w - CH.r - 70 ? 'right' : 'left';
+  ctx.fillText(label, px + (ctx.textAlign === 'left' ? 7 : -7), py < 20 ? py + 14 : py - 7);
+}
+
+function xtRange() {
+  const last = S.series.length ? S.series[S.series.length - 1].t : 0;
+  const xMax = Math.max(10, last);
+  let yMin = 0, yMax = Math.max(S.L, 1);
+  for (const p of S.series) {
+    if (p.xB < yMin) yMin = p.xB;
+    if (p.xA > yMax) yMax = p.xA;
+    if (p.xB > yMax) yMax = p.xB;
+  }
+  let span = yMax - yMin;
+  if (span < 1e-9) span = 1;
+  yMin = Math.min(0, yMin) - span * 0.05;   // 保证原点 0（A 车初始位置）始终在图中
+  yMax += span * 0.05;
+  return { xMax, yMin, yMax };
+}
+
+function drawXT() {
+  const { ctx, w, h } = chartBase(els.xtChart);
+  const { xMax, yMin, yMax } = xtRange();
+  const g = gridAndAxes(ctx, w, h, xMax, yMin, yMax, 't / s', 'x / m', v => num(v));
+  /* 曲线 */
+  for (const key of ['xA', 'xB']) {
+    ctx.strokeStyle = key === 'xA' ? '#E5484D' : '#2F6FED';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    for (const p of S.series) {
+      const x = g.px(p.t), y = g.py(p[key]);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    /* 当前点 */
+    if (S.series.length) {
+      const p = S.series[S.series.length - 1];
+      ctx.fillStyle = key === 'xA' ? '#E5484D' : '#2F6FED';
+      ctx.beginPath(); ctx.arc(g.px(p.t), g.py(p[key]), 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  drawLegend(ctx, w, [
+    { color: '#E5484D', label: '车A x' },
+    { color: '#2F6FED', label: '车B x' }
+  ]);
+  /* 相遇点与坐标标注（x-t 图中 xA 与 xB 曲线的交点） */
+  if (S.met) {
+    const p = S.series[S.series.length - 1];
+    const ix = g.px(p.t), iy = g.py(p.xA);
+    ctx.fillStyle = '#E8890C';
+    ctx.beginPath(); ctx.arc(ix, iy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#E8890C'; ctx.lineWidth = 2;
+    ctx.stroke();
+    const label = '(' + num(p.t) + ', ' + num(p.xA) + ')';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#B26B00';
+    ctx.textAlign = ix > w - CH.r - 70 ? 'right' : 'left';
+    ctx.fillText(label, ix + (ctx.textAlign === 'left' ? 7 : -7), iy - 8);
+  }
+  /* 曲线与坐标轴的交点标注（纵截距 + 与 t 轴交点） */
+  if (S.series.length) {
+    for (const key of ['xA', 'xB']) {
+      const color = key === 'xA' ? '#E5484D' : '#2F6FED';
+      drawAxisPoint(ctx, g, w, 0, key === 'xA' ? 0 : S.L, color);
+      const c = axisCross(S.series, p => p[key]);
+      if (c && c.t > 1e-9) drawAxisPoint(ctx, g, w, c.t, 0, color);
+    }
+  }
+  /* 点击图线选中的点 */
+  if (S.pickXT) {
+    const { t, val, color } = S.pickXT;
+    const px = g.px(t), py = g.py(val);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
+    const label = '(' + num(t) + ', ' + num(val) + ')';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = px > w - CH.r - 70 ? 'right' : 'left';
+    ctx.fillText(label, px + (ctx.textAlign === 'left' ? 7 : -7), py < 20 ? py + 14 : py - 8);
+  }
+}
+
+/* ===== v–t 图 ===== */
+/* 在已绘制序列中找 vA 与 vB（按绘制符号）的交点，线性插值 */
+function findIntersection(vOther) {
+  if (S.series.length < 2) return null;
+  for (let i = 1; i < S.series.length; i++) {
+    const p0 = S.series[i - 1], p1 = S.series[i];
+    const d0 = p0.vA - vOther(p0), d1 = p1.vA - vOther(p1);
+    if (Math.abs(d0) < 1e-9) return { t: p0.t, v: p0.vA };
+    if (d0 * d1 < 0) {
+      const f = d0 / (d0 - d1);
+      return { t: p0.t + (p1.t - p0.t) * f, v: p0.vA + (p1.vA - p0.vA) * f };
+    }
+  }
+  return null;
+}
+
+function vtRange() {
+  const last = S.series.length ? S.series[S.series.length - 1].t : 0;
+  const xMax = Math.max(10, last);
+  const headon = S.scene !== 'chase';
+  let vMin = 0, vMax = 1;
+  for (const p of S.series) {
+    if (headon) { if (-p.vB < vMin) vMin = -p.vB; }
+    else if (p.vB < vMin) vMin = p.vB;
+    if (p.vA > vMax) vMax = p.vA;
+  }
+  vMin -= 1; vMax += 1;
+  return { xMax, yMin: vMin, yMax: vMax, headon };
+}
+
+function drawVT() {
+  const { ctx, w, h } = chartBase(els.vtChart);
+  const { xMax, yMin, yMax, headon } = vtRange();
+  const g = gridAndAxes(ctx, w, h, xMax, yMin, yMax, 't / s', 'v / (m/s)', v => num(v));
+  /* 零轴 */
+  ctx.strokeStyle = '#B9BEB2';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 5]);
+  const y0 = g.py(0);
+  ctx.beginPath(); ctx.moveTo(CH.l, y0); ctx.lineTo(w - CH.r, y0); ctx.stroke();
+  ctx.setLineDash([]);
+  /* 曲线 */
+  for (const key of ['vA', 'vB']) {
+    ctx.strokeStyle = key === 'vA' ? '#E5484D' : '#2F6FED';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let started = false;
+    for (const p of S.series) {
+      const val = key === 'vB' ? (headon ? -p.vB : p.vB) : p.vA;
+      const x = g.px(p.t), y = g.py(val);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    if (S.series.length) {
+      const p = S.series[S.series.length - 1];
+      const val = key === 'vB' ? (headon ? -p.vB : p.vB) : p.vA;
+      ctx.fillStyle = key === 'vA' ? '#E5484D' : '#2F6FED';
+      ctx.beginPath(); ctx.arc(g.px(p.t), g.py(val), 4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  /* 速度曲线交点标注（vA 与 vB 相交时标出坐标） */
+  const vOther = headon ? p => -p.vB : p => p.vB;
+  const it = findIntersection(vOther);
+  if (it) {
+    const ix = g.px(it.t), iy = g.py(it.v);
+    ctx.fillStyle = '#E8890C';
+    ctx.beginPath(); ctx.arc(ix, iy, 4.5, 0, Math.PI * 2); ctx.fill();
+    const label = '(' + num(it.t) + ', ' + num(it.v) + ')';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = '#B26B00';
+    ctx.textAlign = ix > w - CH.r - 70 ? 'right' : 'left';
+    ctx.fillText(label, ix + (ctx.textAlign === 'left' ? 7 : -7), iy - 8);
+  }
+  /* 曲线与坐标轴的交点标注（纵截距 + 与 t 轴交点） */
+  if (S.series.length) {
+    drawAxisPoint(ctx, g, w, 0, S.vA0, '#E5484D');
+    drawAxisPoint(ctx, g, w, 0, headon ? -S.vB0 : S.vB0, '#2F6FED');
+    const cA = axisCross(S.series, p => p.vA);
+    if (cA && cA.t > 1e-9) drawAxisPoint(ctx, g, w, cA.t, 0, '#E5484D');
+    const cB = axisCross(S.series, p => headon ? -p.vB : p.vB);
+    if (cB && cB.t > 1e-9) drawAxisPoint(ctx, g, w, cB.t, 0, '#2F6FED');
+  }
+  /* 点击图线选中的点 */
+  if (S.pickVT) {
+    const { t, val, color } = S.pickVT;
+    const px = g.px(t), py = g.py(val);
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
+    const label = '(' + num(t) + ', ' + num(val) + ')';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = px > w - CH.r - 70 ? 'right' : 'left';
+    ctx.fillText(label, px + (ctx.textAlign === 'left' ? 7 : -7), py < 20 ? py + 14 : py - 8);
+  }
+  drawLegend(ctx, w, [
+    { color: '#E5484D', label: 'vA' },
+    { color: '#2F6FED', label: headon ? 'vB(向左为负)' : 'vB' }
+  ]);
+}
+
+function drawCharts() { drawXT(); drawVT(); }
+
+/* ===== 动画循环 ===== */
+let lastTs = null, acc = 0, lastChartAt = 0;
+function loop(ts) {
+  if (lastTs == null) lastTs = ts;
+  const real = Math.min((ts - lastTs) / 1000, 0.25);
+  lastTs = ts;
+  if (S.playing && !S.done) {
+    acc += real * S.speed;
+    if (acc > 1) acc = 1;
+    let guard = 0;
+    while (acc >= H && !S.done && guard < 3000) {
+      step();
+      acc -= H;
+      guard++;
+    }
+  }
+  drawScene();
+  updateReadouts();
+  if (ts - lastChartAt > 100) { drawCharts(); lastChartAt = ts; }
+  requestAnimationFrame(loop);
+}
+
+/* ===== 事件 ===== */
+/* 点击图表：在图线附近选最近采样点并显示坐标 */
+function attachChartPick(cv, kind) {
+  cv.addEventListener('click', e => {
+    const rect = cv.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const w = cv.clientWidth, h = parseInt(cv.getAttribute('height'), 10);
+    const target = kind === 'xt' ? 'pickXT' : 'pickVT';
+    if (mx < CH.l - 6 || mx > w - CH.r + 6 || my < CH.t - 6 || my > h - CH.b + 6) {
+      S[target] = null; return;
+    }
+    const rng = kind === 'xt' ? xtRange() : vtRange();
+    const headon = S.scene !== 'chase';
+    const keys = kind === 'xt' ? ['xA', 'xB'] : ['vA', 'vB'];
+    let best = null, bestD = 1225;   // 35px 半径阈值
+    for (const p of S.series) {
+      for (const key of keys) {
+        const val = kind === 'vt' && key === 'vB' ? (headon ? -p.vB : p.vB) : p[key];
+        const x = CH.l + (p.t / rng.xMax) * (w - CH.l - CH.r);
+        const y = h - CH.b - ((val - rng.yMin) / (rng.yMax - rng.yMin)) * (h - CH.t - CH.b);
+        const d = (x - mx) * (x - mx) + (y - my) * (y - my);
+        if (d < bestD) { bestD = d; best = { t: p.t, val, key }; }
+      }
+    }
+    if (!best) { S[target] = null; return; }
+    S[target] = {
+      t: best.t, val: best.val,
+      color: best.key === 'xA' || best.key === 'vA' ? '#E5484D' : '#2F6FED'
+    };
+  });
+}
+attachChartPick(els.xtChart, 'xt');
+attachChartPick(els.vtChart, 'vt');
+
+/* 读数输入：反解时刻并跳转，动画与两图联动更新 */
+for (const id of ['rt', 'rxA', 'rvA', 'rxB', 'rvB']) {
+  els[id].addEventListener('change', () => {
+    const raw = parseFloat(els[id].value);
+    if (isNaN(raw)) { updateReadouts(); return; }
+    const t = solveTFor(id, raw);
+    if (t == null) { updateReadouts(); return; }
+    jumpToT(t);
+  });
+}
+
+const numFields = {
+  vA0:  { min: 0, max: 20, dft: 10 },
+  vB0:  { min: 0, max: 20, dft: 0 },
+  aA:   { min: -6, max: 6, dft: -2 },
+  aB:   { min: -6, max: 6, dft: 2 },
+  gapL: { min: 30, max: 200, dft: 100 }
+};
+for (const id of Object.keys(numFields)) {
+  els[id].addEventListener('input', () => {
+    reset();
+  });
+  els[id].addEventListener('change', () => {
+    const cfg = numFields[id];
+    els[id].value = num(clampNum(els[id].value, cfg.min, cfg.max, cfg.dft));
+  });
+}
+
+els.sceneSeg.addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  saveSceneParams();
+  S.scene = btn.dataset.scene;
+  for (const b of els.sceneSeg.querySelectorAll('.seg-btn')) b.classList.toggle('active', b === btn);
+  applySceneParams(S.scene);
+  reset();
+});
+
+els.playBtn.addEventListener('click', togglePlay);
+els.resetBtn.addEventListener('click', reset);
+
+els.speedSeg.addEventListener('click', e => {
+  const btn = e.target.closest('.sp-btn');
+  if (!btn) return;
+  S.speed = parseFloat(btn.dataset.sp);
+  for (const b of els.speedSeg.querySelectorAll('.sp-btn')) b.classList.toggle('active', b === btn);
+});
+
+window.addEventListener('resize', () => {
+  setupCanvas(els.scene, sceneC, 330);
+  setupCanvas(els.xtChart, xtC, 340);
+  setupCanvas(els.vtChart, vtC, 340);
+  drawScene();
+  drawCharts();
+});
+
+/* ===== 初始化 ===== */
+readParams();
+renderFormulas();
+setupCanvas(els.scene, sceneC, 330);
+setupCanvas(els.xtChart, xtC, 300);
+setupCanvas(els.vtChart, vtC, 300);
+reset();
+requestAnimationFrame(loop);
+togglePlay();   // 页面打开即自动演示
+})();
+</script>
+</body>
+</html>
