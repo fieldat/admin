@@ -1483,7 +1483,7 @@ function titleLoop(){
 
     x.save(); x.translate(w*0.5,footY-4*cz); x.scale(cz,cz);
     x.save(); x.translate(0,-4+bob*0.2); x.scale(0.8,0.8); drawPrincess(x,0,0,G.time,1); x.restore();
-    drawCage(x,0,0,false); x.restore();
+    x.globalAlpha=0.74; drawCage(x,0,0,false); x.restore();
 
     x.save(); x.translate(w*0.82,footY-13*bearZoom); x.scale(bearZoom/1.9,bearZoom/1.9);
     x.globalAlpha=0.95; drawBear(x,0,0,G.time,1,0,true); x.restore();
