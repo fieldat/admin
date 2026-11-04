@@ -523,7 +523,7 @@ const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[], chests:[], shop:null,
   stairs:null, torches:[], cage:null, princess:null, explored:new Set(), cam:{x:0,y:0},
   time:0, paused:false, bossDead:false, clear:false, shake:0, overTimer:0, winTimer:0,
-  scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
+  blood:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
 const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,walk:0,alive:true,atkBtn:false};
@@ -535,50 +535,102 @@ function floorMul(){return {hp:1+(G.floor-1)*0.35, dmg:1+(G.floor-1)*0.15};}
  * ================================================================ */
 function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
-/* ---- 光头强 ---- */
+/* ---- 光头强（重绘：牛仔帽/马甲/电锯） ---- */
 function drawPlayer(ctx,x,y){
   const bob=Math.sin(P.walk)*2;
+  const spin=P.swing>0?(1-P.swing/P.swingDur)*Math.PI*2:0.08;
   ctx.save(); ctx.translate(x,y); ctx.scale(P.face,1);
   if(P.flash>0) ctx.globalAlpha=0.45;
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,2,11,4,0,0,7); ctx.fill();
-  ctx.fillStyle='#3d6ca8'; ctx.fillRect(-7,4+bob*0.4,6,9); ctx.fillRect(1,4+bob*0.4,6,9);
-  ctx.fillStyle='#4a3626'; ctx.fillRect(-8,12+bob*0.4,7,3.5); ctx.fillRect(1,12+bob*0.4,7,3.5);
-  ctx.fillStyle='#f7e8cf'; rr(ctx,-9,-3+bob*0.3,18,10,4); ctx.fill();
-  ctx.fillStyle='#3d6ca8'; rr(ctx,-9,-2+bob*0.3,18,8,4); ctx.fill();
-  ctx.fillStyle='#f7e8cf'; ctx.fillRect(-9,-3+bob*0.3,18,3.4);
-  ctx.strokeStyle='#2f5488'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(-5,-3+bob*0.3); ctx.lineTo(-5,4+bob*0.3); ctx.moveTo(5,-3+bob*0.3); ctx.lineTo(5,4+bob*0.3); ctx.stroke();
-  ctx.fillStyle='#f2c49b'; rr(ctx,-10,0+bob*0.3,5,6,2); ctx.fill();
-  const swT=P.swing>0?1-P.swing/P.swingDur:1;
-  const swAng=P.swing>0?(-1.5+swT*2.9):0.12;
-  ctx.save(); ctx.translate(8,-2+bob*0.3); ctx.rotate(swAng);
-  ctx.fillStyle='#f2c49b'; rr(ctx,-4,-2,7,5,2); ctx.fill();
-  ctx.fillStyle='#8b8f94'; rr(ctx,2,-5,11,8,2); ctx.fill();
-  ctx.fillStyle='#4a4e53'; ctx.fillRect(3,-4,9,2); ctx.fillRect(3,1,9,2);
-  ctx.fillStyle='#c9ccd0'; ctx.beginPath(); ctx.arc(14,0,3.6,0,7); ctx.fill();
-  for(let i=0;i<6;i++){const a=i*Math.PI/3+swT*5; ctx.fillStyle='#d9dde1';
-    ctx.beginPath(); ctx.arc(14+Math.cos(a)*2.7,Math.sin(a)*2.7,1.2,0,7); ctx.fill();}
+
+  /* 影子 */
+  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,2,12.5,4.2,0,0,7); ctx.fill();
+
+  /* 后手臂 */
+  ctx.fillStyle='#31578a'; rr(ctx,-11.4,-3.4+bob*0.3,5.6,9,2.6); ctx.fill();
+  ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(-9,5.8+bob*0.3,2.2,0,7); ctx.fill();
+
+  /* 腿 */
+  ctx.fillStyle='#4a3f6b'; ctx.fillRect(-6.6,4+bob*0.4,5.6,9); ctx.fillRect(1,4+bob*0.4,5.6,9);
+  ctx.fillStyle='#3b3356'; ctx.fillRect(-6.6,4+bob*0.4,2,9); ctx.fillRect(1,4+bob*0.4,2,9);
+  /* 靴子 */
+  ctx.fillStyle='#2f2116'; rr(ctx,-7.6,12.2+bob*0.4,7.2,4.2,1.6); ctx.fill();
+  rr(ctx,0.4,12.2+bob*0.4,7.2,4.2,1.6); ctx.fill();
+  ctx.fillStyle='#5a4028'; ctx.fillRect(-7.6,14.4+bob*0.4,7.2,1.5); ctx.fillRect(0.4,14.4+bob*0.4,7.2,1.5);
+
+  /* 躯干 */
+  ctx.fillStyle='#3d6ca8'; rr(ctx,-8.6,-4.2+bob*0.3,17.2,10.8,3.6); ctx.fill();
+  ctx.fillStyle='#2f5488'; ctx.fillRect(-1.2,-4+bob*0.3,2.4,10.4);
+  /* 皮马甲 */
+  ctx.fillStyle='#7a5230'; rr(ctx,-8.6,-4.2+bob*0.3,6.2,10.8,2.6); ctx.fill();
+  rr(ctx,2.4,-4.2+bob*0.3,6.2,10.8,2.6); ctx.fill();
+  ctx.fillStyle='#8f6238'; ctx.fillRect(-8.6,-3+bob*0.3,6.2,1.2); ctx.fillRect(2.4,-3+bob*0.3,6.2,1.2);
+  /* 腰带 */
+  ctx.fillStyle='#3a2a1a'; ctx.fillRect(-8.6,5.4+bob*0.3,17.2,2.2);
+  ctx.fillStyle='#ffc860'; ctx.fillRect(-2.2,5.4+bob*0.3,4.4,2.2);
+  ctx.fillStyle='#8a4a12'; ctx.fillRect(-0.7,6.1+bob*0.3,1.4,0.8);
+
+  /* 头 */
+  ctx.fillStyle='#e0aa78'; ctx.fillRect(-3.4,-9.4+bob,6.8,4.2);
+  ctx.fillStyle='#f3c79b'; rr(ctx,-8.9,-20.4+bob,17.8,13.4,5.4); ctx.fill();
+  ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,2.6,0,7); ctx.arc(9.3,-14.2+bob,2.6,0,7); ctx.fill();
+  /* 耳窝 */
+  ctx.fillStyle='#d99a6a'; ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,1.2,0,7); ctx.arc(9.3,-14.2+bob,1.2,0,7); ctx.fill();
+  /* 鼻子 */
+  ctx.fillStyle='#e8a978'; ctx.beginPath(); ctx.arc(1.6,-12.4+bob,3,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(2.4,-13.4+bob,1,0,7); ctx.fill();
+  /* 胡茬 */
+  ctx.fillStyle='rgba(92,70,48,0.20)'; rr(ctx,-6.2,-10.6+bob,12.4,4.6,2.2); ctx.fill();
+  /* 眼睛 */
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-3.2,-15.5+bob,2,0,7); ctx.arc(3.5,-15.5+bob,2,0,7); ctx.fill();
+  ctx.fillStyle='#2a1a0e'; ctx.beginPath(); ctx.arc(-2.8,-15.4+bob,1.15,0,7); ctx.arc(3.1,-15.4+bob,1.15,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(-3.2,-15.9+bob,0.4,0,7); ctx.arc(2.7,-15.9+bob,0.4,0,7); ctx.fill();
+  /* 嘴 */
+  ctx.strokeStyle='#8a4a3a'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(-2.6,-9.4+bob); ctx.quadraticCurveTo(0.4,-8.2+bob,3.2,-9.6+bob); ctx.stroke();
+  /* 帽子 */
+  ctx.fillStyle='#6f8f3e'; ctx.beginPath(); ctx.arc(0,-19.8+bob,8.9,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#7fa04a'; ctx.fillRect(-8.9,-20.2+bob,17.8,1.4);
+  ctx.fillStyle='#5c7a31'; ctx.fillRect(-9.3,-19.6+bob,18.6,2.6);
+  ctx.fillStyle='#4f6a2a'; rr(ctx,4.2,-19+bob,7.4,2.8,1.3); ctx.fill();
+  ctx.fillStyle='#ffc860'; ctx.fillRect(-2.6,-17.4+bob,3,1.9);
+  /* 眉毛（画在帽子之上，保证可见） */
+  ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=1.8; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-6.2,-17.6+bob); ctx.lineTo(-1.2,-16.7+bob);
+  ctx.moveTo(6.4,-17.6+bob); ctx.lineTo(1.4,-16.7+bob); ctx.stroke();
+
+  /* 旋转的电锯 + 前手臂 */
+  ctx.save();
+  ctx.translate(0,-2+bob*0.3);
+  ctx.rotate(spin);
+  ctx.translate(9,0);
+  /* 手臂 */
+  ctx.fillStyle='#3d6ca8'; rr(ctx,-13,-3.4,12,6.8,3.2); ctx.fill();
+  /* 后握把 */
+  ctx.fillStyle='#3a3a3a'; rr(ctx,-6,-2.4,6,4.8,1.4); ctx.fill();
+  /* 电锯引擎 */
+  ctx.fillStyle='#b03a2e'; rr(ctx,0,-5.4,12,10.8,2.4); ctx.fill();
+  ctx.fillStyle='#8c2a20'; rr(ctx,0,2,12,3.4,1.4); ctx.fill();
+  ctx.fillStyle='#e8b82e'; ctx.fillRect(9,-4.6,1.6,1.6);
+  /* 刀板 */
+  ctx.fillStyle='#c9ccd0'; rr(ctx,11,-2.7,16,5.4,1.6); ctx.fill();
+  ctx.fillStyle='#9aa0a6'; ctx.fillRect(11,-1.2,15,1.2);
+  ctx.fillStyle='#e8ebee';
+  for(let i=0;i<7;i++){ ctx.fillRect(13+i*2.1,-4.1,1.5,1.5); ctx.fillRect(13+i*2.1,2.6,1.5,1.5); }
+  ctx.fillStyle='#8b8f94'; ctx.beginPath(); ctx.arc(27.2,0,2.9,0,7); ctx.fill();
+  ctx.fillStyle='#6e7378'; ctx.beginPath(); ctx.arc(27.2,0,1.4,0,7); ctx.fill();
+  /* 握持的手 */
+  ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(-1.5,0,2.9,0,7); ctx.fill();
+  ctx.strokeStyle='#d99a6a'; ctx.lineWidth=0.9; ctx.beginPath(); ctx.arc(-1.5,0,2.9,0.4,2.7); ctx.stroke();
   ctx.restore();
-  ctx.fillStyle='#f2c49b'; ctx.beginPath(); ctx.arc(-1,-12+bob,8.8,0,7); ctx.fill();
-  ctx.fillStyle='#e8a978'; ctx.beginPath(); ctx.arc(3.6,-8.8+bob,3.4,0,7); ctx.fill();
-  ctx.fillStyle='#3a2a1a'; ctx.beginPath(); ctx.arc(-3,-13.2+bob,1.3,0,7); ctx.arc(3.4,-13.6+bob,1.3,0,7); ctx.fill();
-  ctx.fillStyle='#6f8f3e'; ctx.beginPath(); ctx.arc(-1,-15.8+bob,8.8,Math.PI,0); ctx.fill();
-  ctx.fillStyle='#5c7a31'; ctx.fillRect(-10,-16.3+bob,18,3);
-  ctx.fillStyle='#6f8f3e'; rr(ctx,-5.5,-19.5+bob,9,3.6,2); ctx.fill();
-  ctx.fillStyle='#ffc860'; ctx.fillRect(-2.5,-17.6+bob,3,1.8);
-  const fl=Math.sin(G.time*9)+Math.sin(G.time*13+1)*0.5;
-  ctx.save(); ctx.translate(-10,-3+bob*0.4); ctx.rotate(0.25);
-  ctx.fillStyle='#7a5230'; ctx.fillRect(-1.1,-3.6,2.2,6); ctx.fillRect(-0.6,2.2,3.4,1.6);
-  ctx.fillStyle='#ff9a3d'; ctx.beginPath(); ctx.arc(0,-5.2+fl*0.15,2.7+fl*0.3,0,7); ctx.fill();
-  ctx.fillStyle='#ffd27a'; ctx.beginPath(); ctx.arc(0,-5.4+fl*0.15,1.5+fl*0.2,0,7); ctx.fill();
-  ctx.fillStyle='rgba(255,200,120,0.35)'; ctx.beginPath(); ctx.arc(0,-5+fl*0.1,4+fl*0.4,0,7); ctx.fill();
-  ctx.restore();
+
+  /* 暖色轮廓光 */
   ctx.globalCompositeOperation='lighter';
-  const gg=ctx.createRadialGradient(0,-6,1,0,-6,18);
-  gg.addColorStop(0,'rgba(255,196,110,0.42)');
-  gg.addColorStop(1,'rgba(255,196,110,0)');
-  ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,-6,18,0,7); ctx.fill();
+  const gg=ctx.createRadialGradient(0,-8,2,0,-8,22);
+  gg.addColorStop(0,'rgba(255,190,110,0.22)');
+  gg.addColorStop(1,'rgba(255,190,110,0)');
+  ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(0,-8,22,0,7); ctx.fill();
   ctx.globalCompositeOperation='source-over';
+
   ctx.restore();
 }
 
@@ -856,7 +908,7 @@ function spawnEnemy(kind,x,y){
 function genFloor(){
   G.map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
   G.rooms=[]; G.ents=[]; G.shots=[]; G.items=[]; G.chests=[]; G.shop=null; G.torches=[];
-  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set();
+  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[];
   if(G.floor===FLOORS){ genBossFloor(); return; }
   const gcols=4, grows=3, cw=Math.floor(MAP_W/gcols), ch=Math.floor(MAP_H/grows);
   for(let gy=0;gy<grows;gy++)for(let gx=0;gx<gcols;gx++){
@@ -941,12 +993,34 @@ function spawnBits(x,y,n,col){
   for(let i=0;i<n;i++) parts.push({x,y,vx:R(-1.6,1.6),vy:R(-2.4,-0.2),life:R(0.3,0.5),
     col:col||pick(['#ffc860','#ffe9b8','#ff8a5e']),size:R(1.5,3),grav:5});
 }
+/* 血液喷溅：粒子 + 地面血渍 */
+function spawnBlood(x,y,dir,n,power){
+  const pw=power||1;
+  for(let i=0;i<n;i++){
+    const a=dir+R(-0.85,0.85), sp=R(1.2,4.4)*pw;
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-0.7,life:R(0.24,0.55),
+      col:pick(['#c01710','#8c0a08','#e0301f']),size:R(2,4.2),grav:7});
+  }
+  if(G.blood&&G.blood.length<160){
+    for(let i=0;i<Math.min(3,n);i++){
+      G.blood.push({x:x+R(-0.55,0.55),y:y+R(-0.45,0.45),
+        rx:R(0.1,0.3),ry:R(0.05,0.16),rot:R(0,3.14),a:R(0.3,0.62)});
+    }
+  }
+}
+function drawBlood(ctx,b){
+  ctx.save(); ctx.translate(b.x*TILE,b.y*TILE); ctx.rotate(b.rot);
+  ctx.fillStyle='rgba(92,8,6,'+b.a.toFixed(2)+')';
+  ctx.beginPath(); ctx.ellipse(0,0,b.rx*TILE,b.ry*TILE,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(150,22,14,'+(b.a*0.55).toFixed(2)+')';
+  ctx.beginPath(); ctx.ellipse(b.rx*TILE*0.25,-b.ry*TILE*0.2,b.rx*TILE*0.5,b.ry*TILE*0.4,0,0,7); ctx.fill();
+  ctx.restore();
+}
 function spawnSlash(){
-  const base=P.face>0?0:Math.PI;
-  for(let i=0;i<10;i++){
-    const a=base-1.0+i/9*2.0;
-    parts.push({x:P.x,y:P.y,vx:Math.cos(a)*R(3.6,4.8),vy:Math.sin(a)*R(3.6,4.8),
-      life:R(0.18,0.26),col:'#fff3d0',size:3,grav:0});
+  for(let i=0;i<14;i++){
+    const a=i/14*Math.PI*2;
+    parts.push({x:P.x,y:P.y,vx:Math.cos(a)*R(3.4,4.6),vy:Math.sin(a)*R(3.4,4.6),
+      life:R(0.18,0.28),col:'#fff3d0',size:3,grav:0});
   }
 }
 function addDmgNum(x,y,v,crit){ dnums.push({x,y,v:Math.round(v),crit:!!crit,life:0.8}); }
@@ -958,18 +1032,21 @@ function updateFx(dt){
 /* ===== 战斗 ===== */
 function attack(){
   P.atkCd=0.42*P.aspdMul; P.swing=P.swingDur;
-  AU.play('swing'); spawnSlash(); G.shake=Math.max(G.shake,1.6);
-  const face=P.face||1;
+  AU.play('swing'); spawnSlash(); G.shake=Math.max(G.shake,1.8);
   for(const e of G.ents){
     if(e.dead) continue;
     const dx=e.x-P.x, dy=e.y-P.y, d=Math.hypot(dx,dy)||0.001;
     if(d>P.atkRange+e.r*0.6) continue;
-    if(dx*face < -0.32*d) continue;   /* 挥砍打不到正后方 */
     const crit=chance(P.critCh||0);
     const dmg=P.dmg*(crit?2:1);
     e.hp-=dmg; e.flash=0.14;
     const kx=dx/d, ky=dy/d;
-    moveE(e,kx*0.3,ky*0.3);
+    /* 命中后怪物后退一小步并短暂僵直 */
+    const kb=e.kind==='boss'?0.14:(e.kind==='bear'?0.34:0.55);
+    moveE(e,kx*kb,ky*kb);
+    e.stun=Math.max(e.stun||0,e.kind==='boss'?0.05:0.16);
+    G.shake=Math.max(G.shake,crit?5.6:3.4);
+    spawnBlood(e.x,e.y,Math.atan2(ky,kx),crit?14:8,crit?1.4:1);
     if(crit) AU.play('crit'); else AU.play('hit');
     addDmgNum(e.x,e.y,dmg,crit);
     if(e.hp<=0) killEnemy(e);
@@ -981,6 +1058,8 @@ function killEnemy(e){
   const coinN=Math.ceil(e.coin*(1+meta.ups.coin*0.15));
   if(coinN>0) addCoins(coinN);
   spawnBits(e.x,e.y,e.coin?5:3);
+  G.shake=Math.max(G.shake,5);
+  spawnBlood(e.x,e.y,R(0,Math.PI*2),16,1.5);
   if(P.ls>0&&P.alive){ P.hp=Math.min(P.maxHp,P.hp+P.ls); addDmgNum(e.x,e.y-0.4,'+'+P.ls,false); }
   if(e.kind==='boss'){ bossDefeated(); }
   checkClear();
@@ -1020,8 +1099,9 @@ function useHoney(){
 }
 function hitPlayer(dmg){
   if(P.invuln>0||!P.alive) return;
-  P.hp-=dmg; P.invuln=0.8; P.flash=0.25; G.shake=Math.max(G.shake,4.5);
+  P.hp-=dmg; P.invuln=0.8; P.flash=0.25; G.shake=Math.max(G.shake,7);
   AU.play('hurt'); spawnBits(P.x,P.y,3,['#ff6a52','#d94b3d']);
+  spawnBlood(P.x,P.y,R(0,Math.PI*2),10,1.1);
   if(P.hp<=0){ P.hp=0; P.alive=false; AU.play('die'); G.overTimer=1.2; }
 }
 
@@ -1029,6 +1109,7 @@ function hitPlayer(dmg){
 function updateEnemy(e,dt){
   e.t+=dt; e.flash=Math.max(0,e.flash-dt); e.cd=Math.max(0,e.cd-dt);
   if(e.dead) return;
+  if(e.stun>0){ e.stun=Math.max(0,e.stun-dt); return; }   /* 受击僵直 */
   const dx=P.x-e.x, dy=P.y-e.y, d=Math.hypot(dx,dy)||0.001;
   e.face=dx>0?1:-1;
   if(e.kind==='bee'){
@@ -1309,6 +1390,7 @@ function render(){
   G.shake*=0.85; if(G.shake<0.1) G.shake=0;
   pctx.translate(Math.round(-G.cam.x+shx),Math.round(-G.cam.y+shy));
   drawTiles();
+  for(const b of G.blood) drawBlood(ctx,b);
   for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time);
   if(G.stairs) drawStairs(ctx,G.stairs.x*TILE,G.stairs.y*TILE,G.stairs.active);
   for(const c of G.chests) drawChest(ctx,c.x*TILE,c.y*TILE,c.opened,G.time);
@@ -1360,23 +1442,23 @@ function render(){
   ctx.drawImage(PIXC,0,0,W,H);
   /* 主画布是屏幕像素，世界坐标必须先减相机再乘 PS，否则特效会跑到左上角 */
   if(P.swing>0&&P.alive){
-    const t=1-P.swing/P.swingDur;                 /* 0→1 挥砍进度 */
-    const dir=P.face>0?0:Math.PI;
-    const half=1.22;
-    const a0=dir-half;
-    const a1=a0+half*2*Math.min(1,t*1.5);
-    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=P.atkRange*TILE*PS;
+    const t=1-P.swing/P.swingDur;                 /* 0→1 旋转进度 */
+    const start=0.08, end=start+t*Math.PI*2*1.02;
+    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=P.atkRange*TILE*PS*0.8;
     ctx.save();
     ctx.lineCap='round';
-    ctx.strokeStyle='rgba(255,236,170,0.26)'; ctx.lineWidth=7*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0,a1); ctx.stroke();
-    ctx.strokeStyle='rgba(255,247,214,0.9)'; ctx.lineWidth=2.6*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0,a1); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.2*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.78,a0+0.08,a1-0.04); ctx.stroke();
-    const ex=sx+Math.cos(a1)*sr*0.94, ey=sy+Math.sin(a1)*sr*0.94;
-    ctx.fillStyle='rgba(255,180,90,0.55)'; ctx.beginPath(); ctx.arc(ex,ey,5*PS,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,250,220,0.95)'; ctx.beginPath(); ctx.arc(ex,ey,2.2*PS,0,7); ctx.fill();
+    /* 分层弧线做拖尾：越长越淡，越靠近刀尖越亮 */
+    ctx.globalAlpha=0.12; ctx.strokeStyle='#ffe9a8'; ctx.lineWidth=9*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,start,end); ctx.stroke();
+    ctx.globalAlpha=0.30; ctx.lineWidth=7*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-2.0),end); ctx.stroke();
+    ctx.globalAlpha=0.55; ctx.lineWidth=4.5*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-0.9),end); ctx.stroke();
+    ctx.globalAlpha=1; ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=2.2*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-0.32),end); ctx.stroke();
+    const ex=sx+Math.cos(end)*sr*0.94, ey=sy+Math.sin(end)*sr*0.94;
+    ctx.fillStyle='rgba(255,180,90,0.6)'; ctx.beginPath(); ctx.arc(ex,ey,5.5*PS,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,250,220,0.95)'; ctx.beginPath(); ctx.arc(ex,ey,2.3*PS,0,7); ctx.fill();
     ctx.restore();
   }
   ctx.save();
