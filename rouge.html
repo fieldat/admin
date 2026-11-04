@@ -1206,23 +1206,26 @@ function render(){
   ctx=real;
   ctx.imageSmoothingEnabled=false;
   ctx.drawImage(PIXC,0,0,W,H);
+  /* 主画布是屏幕像素，世界坐标必须先减相机再乘 PS，否则特效会跑到左上角 */
   if(P.swing>0&&P.alive){
     const a0=G.time*22;
-    ctx.save(); ctx.translate(-G.cam.x,-G.cam.y);
-    ctx.strokeStyle='rgba(255,240,200,0.85)'; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(P.x*TILE,P.y*TILE,1.8*TILE,a0,a0+4.4); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.6;
-    ctx.beginPath(); ctx.arc(P.x*TILE,P.y*TILE,1.7*TILE,a0+0.3,a0+4.1); ctx.stroke();
+    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=1.8*TILE*PS;
+    ctx.save();
+    ctx.strokeStyle='rgba(255,240,200,0.85)'; ctx.lineWidth=3*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr,a0,a0+4.4); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.6*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0+0.3,a0+4.1); ctx.stroke();
     ctx.restore();
   }
-  ctx.save(); ctx.translate(-G.cam.x,-G.cam.y);
+  ctx.save();
   for(const d of dnums){
-    ctx.font='bold '+(d.crit?18:14)+'px "Microsoft YaHei",sans-serif';
+    const dx=(d.x*TILE-G.cam.x)*PS, dy=(d.y*TILE-G.cam.y)*PS;
+    ctx.font='bold '+Math.round((d.crit?18:14)*PS)+'px "Microsoft YaHei",sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,0.7)';
-    ctx.strokeText(d.v,d.x*TILE,d.y*TILE);
+    ctx.lineWidth=3*PS; ctx.strokeStyle='rgba(0,0,0,0.7)';
+    ctx.strokeText(d.v,dx,dy);
     ctx.fillStyle=d.crit?'#ffd27a':'#fff';
-    ctx.fillText(d.v,d.x*TILE,d.y*TILE);
+    ctx.fillText(d.v,dx,dy);
   }
   drawPrompt();
   ctx.restore();
@@ -1297,12 +1300,12 @@ function drawPrompt(){
     if(!c.opened&&dist(P.x,P.y,c.x,c.y)<2.2){ target=c; label='按 E 打开宝箱'; break; }
   if(!target&&G.shop&&dist(P.x,P.y,G.shop.x,G.shop.y)<2.6){ target=G.shop; label='按 E 光顾杂货铺'; }
   if(!target) return;
-  ctx.font='bold 13px "Microsoft YaHei",sans-serif';
+  const sx=(target.x*TILE-G.cam.x)*PS, sy=(target.y*TILE-30-G.cam.y)*PS;
+  ctx.font='bold '+Math.round(13*PS)+'px "Microsoft YaHei",sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  const ty=target.y*TILE-30;
-  ctx.lineWidth=3; ctx.strokeStyle='rgba(0,0,0,0.7)';
-  ctx.strokeText(label,target.x*TILE,ty);
-  ctx.fillStyle='#ffe9b8'; ctx.fillText(label,target.x*TILE,ty);
+  ctx.lineWidth=3*PS; ctx.strokeStyle='rgba(0,0,0,0.7)';
+  ctx.strokeText(label,sx,sy);
+  ctx.fillStyle='#ffe9b8'; ctx.fillText(label,sx,sy);
 }
 function drawLighting(){
   const px=P.x*TILE-G.cam.x, py=P.y*TILE-G.cam.y;
