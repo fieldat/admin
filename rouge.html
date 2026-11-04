@@ -512,10 +512,10 @@ const EDEF={
   boss:{name:'暗黑熊王', hp:950, dmg:30, spd:1.45,r:0.80, coin:30,wood:20}
 };
 const FLOOR_ENEMIES=[
-  [['bee',5],['boar',5],['mush',3],['bear',2],['spider',3],['bat',2]],
-  [['bee',6],['boar',5],['mush',4],['bear',3],['spider',4],['bat',3]],
-  [['bee',8],['boar',6],['mush',5],['bear',4],['spider',5],['bat',3]],
-  [['bee',9],['boar',7],['mush',5],['bear',6],['spider',5],['bat',4]]
+  [['bee',3],['boar',3],['mush',2],['bear',1],['spider',2],['bat',1]],
+  [['bee',4],['boar',3],['mush',2],['bear',2],['spider',2],['bat',2]],
+  [['bee',5],['boar',4],['mush',3],['bear',3],['spider',3],['bat',2]],
+  [['bee',6],['boar',4],['mush',3],['bear',4],['spider',3],['bat',3]]
 ];
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 
@@ -560,36 +560,174 @@ function drawBandolier(ctx,bob){
   ctx.restore();
 }
 
-/* ---- 光头强（图片精灵：四向朝向 + 行走浮动） ---- */
-const PLAYER_IMG=(typeof Image!=='undefined')?new Image():null;
-if(PLAYER_IMG){ PLAYER_IMG.src='assets/player.png'; }
-let playerReady=false;
-if(PLAYER_IMG) PLAYER_IMG.onload=()=>{playerReady=true;};
+/* ---- 光头强（四向朝向 + 行走动画） ---- */
 function drawPlayer(ctx,x,y){
   const dir=P.dir||'down';
+  const side=dir==='left'||dir==='right';
   const back=dir==='up';
   const moving=!!P.moving;
+  const step=moving?Math.sin(P.walk):0;
   const bob=moving?Math.abs(Math.sin(P.walk))*1.8:0;
-  const swingT=P.swing>0?1-P.swing/P.swingDur:0;
+  const spin=P.swing>0?(1-P.swing/P.swingDur)*Math.PI*2:0.08;
   ctx.save(); ctx.translate(x,y); ctx.scale(P.face,1);
   if(P.flash>0) ctx.globalAlpha=0.45;
 
   /* 影子 */
   ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,2,12.5,4.2,0,0,7); ctx.fill();
 
-  ctx.save();
-  if(back){ ctx.scale(-1,1); ctx.globalAlpha*=0.82; }
-  if(swingT>0){ ctx.translate(0,-Math.sin(swingT*Math.PI)*2.4); ctx.rotate(Math.sin(swingT*Math.PI)*0.10); }
-  if(playerReady){
-    const h=38, w=38*(PLAYER_IMG.width/PLAYER_IMG.height);
-    ctx.drawImage(PLAYER_IMG,-w/2,-28+bob,w,h);
+  /* 腿：前后/左右交替抬起 */
+  if(side){
+    ctx.save(); ctx.translate(-1.6-step*3.4,4+bob*0.4-Math.max(0,-step)*1.8);
+    ctx.fillStyle='#3f4c2a'; rr(ctx,-2.4,0,4.8,9,2); ctx.fill();
+    ctx.fillStyle='#2f3a20'; ctx.fillRect(-1.8,2.4,2,1.8); ctx.fillRect(0.6,5.4,1.4,1.4);
+    ctx.fillStyle='#6b4a2a'; rr(ctx,-3,8.4,6,4,1.5); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.translate(1.4+step*3.4,4+bob*0.4-Math.max(0,step)*1.8);
+    ctx.fillStyle='#55673a'; rr(ctx,-2.4,0,4.8,9,2); ctx.fill();
+    ctx.fillStyle='#3f4c2a'; ctx.fillRect(-1.9,2.2,1.8,1.8); ctx.fillRect(0.5,5.2,1.4,1.4);
+    ctx.fillStyle='#6e7d4a'; ctx.fillRect(-0.6,6.6,1.2,1.2);
+    ctx.fillStyle='#6b4a2a'; rr(ctx,-3,8.4,6,4,1.5); ctx.fill();
+    ctx.fillStyle='#3f2a16'; ctx.fillRect(-3,10.8,6,1.3);
+    ctx.restore();
   }else{
-    /* 图片未就绪时的兜底色块 */
-    ctx.fillStyle='#4a76a8'; rr(ctx,-8,-20,16,28,4); ctx.fill();
-    ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(0,-25,7.5,0,7); ctx.fill();
-    ctx.fillStyle='#d9a020'; rr(ctx,-9,-30,18,7,2); ctx.fill();
-    ctx.fillStyle='#55673a'; rr(ctx,-6,-1,5,10,2); ctx.fill(); rr(ctx,1,-1,5,10,2); ctx.fill();
+    for(const pair of [[-3.8,step],[3.8,-step]]){
+      const hx=pair[0], ph=pair[1];
+      const lift=Math.max(0,ph)*2.2, dx=ph*1.6;
+      ctx.save(); ctx.translate(hx+dx,4+bob*0.4-lift);
+      ctx.fillStyle='#55673a'; rr(ctx,-2.8,0,5.6,9,2); ctx.fill();
+      ctx.fillStyle='#3f4c2a'; ctx.fillRect(-2.2,2.4,2.2,1.8); ctx.fillRect(0.8,5.4,1.6,1.4);
+      ctx.fillStyle='#6e7d4a'; ctx.fillRect(-0.8,6.6,1.2,1.2);
+      ctx.fillStyle='#6b4a2a'; rr(ctx,-3.4,8.4,6.8,4,1.6); ctx.fill();
+      ctx.fillStyle='#3f2a16'; ctx.fillRect(-3.4,10.8,6.8,1.4);
+      ctx.restore();
+    }
   }
+
+  /* 后手臂（随步伐摆动） */
+  if(side){
+    ctx.save(); ctx.translate(-6.8-step*1.8,-2.6+bob*0.3); ctx.rotate(-step*0.18);
+    ctx.fillStyle='#3a6698'; rr(ctx,-2.6,-1,5.2,9,2.4); ctx.fill();
+    ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(0,8.6,2.1,0,7); ctx.fill();
+    ctx.restore();
+  }else{
+    const ax=back?-12.4:-11.4;
+    ctx.fillStyle='#3a6698'; rr(ctx,ax,-3.4+bob*0.3,5.6,9,2.6); ctx.fill();
+    ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(ax+2.4,5.8+bob*0.3,2.2,0,7); ctx.fill();
+  }
+
+  /* 躯干：蓝衬衫 + 子弹带 */
+  if(side){
+    ctx.fillStyle='#4a76a8'; rr(ctx,-6,-4.2+bob*0.3,12,10.8,3.4); ctx.fill();
+    ctx.fillStyle='#365f8c'; rr(ctx,-5.8,-4.2+bob*0.3,3.4,10.8,2); ctx.fill();
+    ctx.fillStyle='#5d89bb'; ctx.fillRect(-4.8,-4+bob*0.3,8,1.6);
+    ctx.fillStyle='#3a2a1a'; ctx.fillRect(-6,5.4+bob*0.3,12,2.2);
+    ctx.fillStyle='#c9a24a'; ctx.fillRect(-1.2,5.4+bob*0.3,3.2,2.2);
+  }else if(back){
+    ctx.fillStyle='#4a76a8'; rr(ctx,-8.6,-4.2+bob*0.3,17.2,10.8,3.6); ctx.fill();
+    ctx.fillStyle='#365f8c'; ctx.fillRect(-8.2,-4.2+bob*0.3,16.4,2.2);
+    ctx.fillStyle='#3a6698'; ctx.fillRect(-6,-1+bob*0.3,12,1.3);
+    ctx.fillStyle='#3a2a1a'; ctx.fillRect(-8.6,5.4+bob*0.3,17.2,2.2);
+    ctx.fillStyle='#c9a24a'; ctx.fillRect(-2.2,5.4+bob*0.3,4.4,2.2);
+  }else{
+    ctx.fillStyle='#4a76a8'; rr(ctx,-8.6,-4.2+bob*0.3,17.2,10.8,3.6); ctx.fill();
+    ctx.fillStyle='#365f8c'; ctx.fillRect(-1,-4+bob*0.3,2,10.4);
+    ctx.fillStyle='#5d89bb'; ctx.beginPath();
+    ctx.moveTo(-4.8,-4.2+bob*0.3); ctx.lineTo(0,-1.2+bob*0.3); ctx.lineTo(4.8,-4.2+bob*0.3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#3a2a1a'; ctx.fillRect(-8.6,5.4+bob*0.3,17.2,2.2);
+    ctx.fillStyle='#c9a24a'; ctx.fillRect(-2.2,5.4+bob*0.3,4.4,2.2);
+    ctx.fillStyle='#8a4a12'; ctx.fillRect(-0.7,6.1+bob*0.3,1.4,0.8);
+  }
+  drawBandolier(ctx,bob);
+
+  /* 头部：正面 / 背面 / 侧面 */
+  if(side){
+    ctx.fillStyle='#e0aa78'; ctx.fillRect(-2.6,-9.4+bob,5.2,4.2);
+    ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.ellipse(-0.4,-13.9+bob,8.4,6.9,0,0,7); ctx.fill();
+    ctx.fillStyle='#e8a978'; ctx.beginPath(); ctx.ellipse(7.3,-13.1+bob,3.2,2.3,0.3,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(8,-14+bob,0.9,0,7); ctx.fill();
+    ctx.fillStyle='#e8a978'; ctx.beginPath(); ctx.ellipse(3.2,-9.6+bob,3.4,1.9,0,0,7); ctx.fill();
+    ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(-2.4,-12.8+bob,2.4,0,7); ctx.fill();
+    ctx.fillStyle='#d99a6a'; ctx.beginPath(); ctx.arc(-2.4,-12.8+bob,1.1,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(4.8,-15+bob,1.9,0,7); ctx.fill();
+    ctx.fillStyle='#2a1a0e'; ctx.beginPath(); ctx.arc(5.2,-15+bob,1.05,0,7); ctx.fill();
+    ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=1.8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(2.6,-17.4+bob); ctx.lineTo(7,-16.6+bob); ctx.stroke();
+    ctx.strokeStyle='#8a4a3a'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(6.4,-10.2+bob); ctx.quadraticCurveTo(5.2,-8.8+bob,2.8,-9.2+bob); ctx.stroke();
+    camoDome(ctx,-19.6,8.5,bob);
+    ctx.fillStyle='#7a8650'; ctx.fillRect(-8.5,-20.2+bob,17,1.4);
+    ctx.fillStyle='#46552f'; ctx.fillRect(-8.8,-19.4+bob,17.6,2.2);
+    ctx.fillStyle='#3a4526'; rr(ctx,4,-18.8+bob,7.6,2.6,1.2); ctx.fill();
+    ctx.fillStyle='#d9a020'; rr(ctx,-9.4,-18.8+bob,3.2,7,1.6); ctx.fill();
+    ctx.fillStyle='#b9821c'; rr(ctx,-9.4,-13.8+bob,3.2,2,1); ctx.fill();
+    ctx.fillStyle='#c4453c'; ctx.beginPath(); ctx.moveTo(3.6,-21+bob); ctx.lineTo(7.6,-27+bob); ctx.lineTo(5.2,-20.4+bob); ctx.closePath(); ctx.fill();
+  }else if(back){
+    ctx.fillStyle='#e0aa78'; ctx.fillRect(-3.4,-9.4+bob,6.8,4.2);
+    ctx.fillStyle='#f3c79b'; rr(ctx,-8.9,-20.4+bob,17.8,13.4,5.4); ctx.fill();
+    ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,2.6,0,7); ctx.arc(9.3,-14.2+bob,2.6,0,7); ctx.fill();
+    ctx.fillStyle='#d99a6a'; ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,1.1,0,7); ctx.arc(9.3,-14.2+bob,1.1,0,7); ctx.fill();
+    ctx.fillStyle='rgba(217,154,106,0.25)'; ctx.beginPath(); ctx.ellipse(0,-11.4+bob,6.6,2.4,0,0,7); ctx.fill();
+    camoDome(ctx,-19.8,8.9,bob);
+    ctx.fillStyle='#7a8650'; ctx.fillRect(-8.9,-20.4+bob,17.8,1.6);
+    ctx.fillStyle='#46552f'; ctx.fillRect(-9.3,-19.6+bob,18.6,2.4);
+    ctx.fillStyle='#d9a020'; rr(ctx,-10.6,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+    rr(ctx,7.2,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+    ctx.fillStyle='#b9821c'; rr(ctx,-10.6,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+    rr(ctx,7.2,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+    ctx.fillStyle='#3a4526'; rr(ctx,-9,-17.8+bob,5,2.2,1.1); ctx.fill();
+  }else{
+    ctx.fillStyle='#e0aa78'; ctx.fillRect(-3.4,-9.4+bob,6.8,4.2);
+    ctx.fillStyle='#f3c79b'; rr(ctx,-8.9,-20.4+bob,17.8,13.4,5.4); ctx.fill();
+    ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,2.6,0,7); ctx.arc(9.3,-14.2+bob,2.6,0,7); ctx.fill();
+    ctx.fillStyle='#d99a6a'; ctx.beginPath(); ctx.arc(-9.3,-14.2+bob,1.2,0,7); ctx.arc(9.3,-14.2+bob,1.2,0,7); ctx.fill();
+    ctx.fillStyle='#e8a978'; ctx.beginPath(); ctx.arc(1.6,-12.2+bob,3.4,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(2.4,-13.4+bob,1,0,7); ctx.fill();
+    ctx.fillStyle='rgba(92,70,48,0.30)'; rr(ctx,-6.4,-10.6+bob,12.8,4.8,2.2); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-3.2,-15.5+bob,2.2,0,7); ctx.arc(3.5,-15.5+bob,2.2,0,7); ctx.fill();
+    ctx.fillStyle='#2a1a0e'; ctx.beginPath(); ctx.arc(-2.8,-15.4+bob,1.25,0,7); ctx.arc(3.1,-15.4+bob,1.25,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(-3.2,-15.9+bob,0.4,0,7); ctx.arc(2.7,-15.9+bob,0.4,0,7); ctx.fill();
+    ctx.strokeStyle='#8a4a3a'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(-2.6,-9.4+bob); ctx.quadraticCurveTo(0.4,-8.2+bob,3.2,-9.6+bob); ctx.stroke();
+    camoDome(ctx,-19.8,8.9,bob);
+    ctx.fillStyle='#7a8650'; ctx.fillRect(-8.9,-20.4+bob,17.8,1.6);
+    ctx.fillStyle='#46552f'; ctx.fillRect(-9.3,-19.6+bob,18.6,2.4);
+    ctx.fillStyle='#d9a020'; rr(ctx,-10.6,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+    rr(ctx,7.2,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+    ctx.fillStyle='#b9821c'; rr(ctx,-10.6,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+    rr(ctx,7.2,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+    ctx.fillStyle='#3a4526'; rr(ctx,3.6,-19+bob,8,2.8,1.3); ctx.fill();
+    ctx.fillStyle='#8a4a12'; ctx.beginPath(); ctx.arc(-2.6,-18+bob,1.4,0,7); ctx.fill();
+    ctx.fillStyle='#ffe08a'; ctx.beginPath(); ctx.arc(-2.6,-18+bob,0.6,0,7); ctx.fill();
+    ctx.fillStyle='#c4453c'; ctx.beginPath();
+    ctx.moveTo(6,-21+bob); ctx.lineTo(10.4,-27.4+bob); ctx.lineTo(7.6,-20.2+bob); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=1.8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-6.2,-17.6+bob); ctx.lineTo(-1.2,-16.7+bob);
+    ctx.moveTo(6.4,-17.6+bob); ctx.lineTo(1.4,-16.7+bob); ctx.stroke();
+  }
+
+  /* 旋转的电锯 + 前手臂 */
+  ctx.save();
+  ctx.translate(0,-2+bob*0.3);
+  ctx.rotate(spin);
+  ctx.translate(9,0);
+  /* 手臂 */
+  ctx.fillStyle='#4a76a8'; rr(ctx,-13,-3.4,12,6.8,3.2); ctx.fill();
+  /* 后握把 */
+  ctx.fillStyle='#3a3a3a'; rr(ctx,-6,-2.4,6,4.8,1.4); ctx.fill();
+  /* 电锯引擎 */
+  ctx.fillStyle='#b03a2e'; rr(ctx,0,-5.4,12,10.8,2.4); ctx.fill();
+  ctx.fillStyle='#8c2a20'; rr(ctx,0,2,12,3.4,1.4); ctx.fill();
+  ctx.fillStyle='#e8b82e'; ctx.fillRect(9,-4.6,1.6,1.6);
+  /* 刀板 */
+  ctx.fillStyle='#c9ccd0'; rr(ctx,11,-2.7,16,5.4,1.6); ctx.fill();
+  ctx.fillStyle='#9aa0a6'; ctx.fillRect(11,-1.2,15,1.2);
+  ctx.fillStyle='#e8ebee';
+  for(let i=0;i<7;i++){ ctx.fillRect(13+i*2.1,-4.1,1.5,1.5); ctx.fillRect(13+i*2.1,2.6,1.5,1.5); }
+  ctx.fillStyle='#8b8f94'; ctx.beginPath(); ctx.arc(27.2,0,2.9,0,7); ctx.fill();
+  ctx.fillStyle='#6e7378'; ctx.beginPath(); ctx.arc(27.2,0,1.4,0,7); ctx.fill();
+  /* 握持的手 */
+  ctx.fillStyle='#f3c79b'; ctx.beginPath(); ctx.arc(-1.5,0,2.9,0,7); ctx.fill();
+  ctx.strokeStyle='#d99a6a'; ctx.lineWidth=0.9; ctx.beginPath(); ctx.arc(-1.5,0,2.9,0.4,2.7); ctx.stroke();
   ctx.restore();
 
   /* 暖色轮廓光 */
