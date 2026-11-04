@@ -523,7 +523,7 @@ const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[], chests:[], shop:null,
   stairs:null, torches:[], cage:null, princess:null, explored:new Set(), cam:{x:0,y:0},
   time:0, paused:false, bossDead:false, clear:false, shake:0, overTimer:0, winTimer:0,
-  blood:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
+  blood:[], decor:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
 const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,walk:0,alive:true,atkBtn:false};
@@ -587,12 +587,22 @@ function drawPlayer(ctx,x,y){
   /* 嘴 */
   ctx.strokeStyle='#8a4a3a'; ctx.lineWidth=1.4;
   ctx.beginPath(); ctx.moveTo(-2.6,-9.4+bob); ctx.quadraticCurveTo(0.4,-8.2+bob,3.2,-9.6+bob); ctx.stroke();
-  /* 帽子 */
-  ctx.fillStyle='#6f8f3e'; ctx.beginPath(); ctx.arc(0,-19.8+bob,8.9,Math.PI,0); ctx.fill();
-  ctx.fillStyle='#7fa04a'; ctx.fillRect(-8.9,-20.2+bob,17.8,1.4);
-  ctx.fillStyle='#5c7a31'; ctx.fillRect(-9.3,-19.6+bob,18.6,2.6);
-  ctx.fillStyle='#4f6a2a'; rr(ctx,4.2,-19+bob,7.4,2.8,1.3); ctx.fill();
-  ctx.fillStyle='#ffc860'; ctx.fillRect(-2.6,-17.4+bob,3,1.9);
+  /* 黄色猎人帽（护耳 + 帽檐 + 羽毛） */
+  ctx.fillStyle='#d9a020'; ctx.beginPath(); ctx.arc(0,-19.8+bob,8.9,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#f2c45a'; ctx.fillRect(-8.9,-20.4+bob,17.8,1.6);
+  ctx.fillStyle='#b9821c'; ctx.fillRect(-9.3,-19.6+bob,18.6,2.4);
+  /* 护耳 */
+  ctx.fillStyle='#d9a020'; rr(ctx,-10.6,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+  rr(ctx,7.2,-19.2+bob,3.4,7.6,1.8); ctx.fill();
+  ctx.fillStyle='#b9821c'; rr(ctx,-10.6,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+  rr(ctx,7.2,-13.4+bob,3.4,2.2,1.1); ctx.fill();
+  /* 帽檐 */
+  ctx.fillStyle='#c9951f'; rr(ctx,3.6,-19+bob,8,2.8,1.3); ctx.fill();
+  /* 帽徽 + 羽毛 */
+  ctx.fillStyle='#8a4a12'; ctx.beginPath(); ctx.arc(-2.6,-18+bob,1.4,0,7); ctx.fill();
+  ctx.fillStyle='#ffe08a'; ctx.beginPath(); ctx.arc(-2.6,-18+bob,0.6,0,7); ctx.fill();
+  ctx.fillStyle='#c4453c'; ctx.beginPath();
+  ctx.moveTo(6,-21+bob); ctx.lineTo(10.4,-27.4+bob); ctx.lineTo(7.6,-20.2+bob); ctx.closePath(); ctx.fill();
   /* 眉毛（画在帽子之上，保证可见） */
   ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=1.8; ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(-6.2,-17.6+bob); ctx.lineTo(-1.2,-16.7+bob);
@@ -864,6 +874,91 @@ function drawPotion(ctx,x,y,t,kind){
   ctx.restore();
 }
 
+/* ===== 地牢装饰 ===== */
+function drawCampfire(ctx,x,y,t){
+  ctx.save(); ctx.translate(x,y);
+  const g=ctx.createRadialGradient(0,-4,2,0,-4,36);
+  g.addColorStop(0,'rgba(255,160,60,0.30)'); g.addColorStop(1,'rgba(255,120,30,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,-4,36,0,7); ctx.fill();
+  ctx.fillStyle='#4a443c';
+  for(let i=0;i<7;i++){
+    const a=i/7*Math.PI*2;
+    ctx.beginPath(); ctx.ellipse(Math.cos(a)*11,Math.sin(a)*5+3,3.2,2.2,a,0,7); ctx.fill();
+  }
+  ctx.strokeStyle='#5a3a1c'; ctx.lineWidth=3.2; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-8,3); ctx.lineTo(8,-1); ctx.moveTo(-7,-1); ctx.lineTo(7,3); ctx.stroke();
+  for(let i=0;i<3;i++){
+    const s=1+Math.sin(t*7+i*2)*0.18;
+    ctx.fillStyle=['rgba(198,58,20,0.85)','rgba(255,140,40,0.9)','rgba(255,220,120,0.95)'][i];
+    ctx.beginPath(); ctx.ellipse((i-1)*2.4,-6-i*1.6,5.2-i*1.2,(9.5-i*2.4)*s,0,0,7); ctx.fill();
+  }
+  for(let i=0;i<3;i++){
+    const p=(t*0.55+i*0.33)%1;
+    ctx.fillStyle='rgba(255,200,120,'+(1-p).toFixed(2)+')';
+    ctx.fillRect(Math.sin(t*3+i*2)*4,-12-p*18,1.8,1.8);
+  }
+  ctx.restore();
+}
+function drawWeb(ctx,x,y,corner,t){
+  const sx=(corner===1||corner===2)?-1:1;
+  const sy=(corner>=2)?-1:1;
+  ctx.save();
+  ctx.translate(x+(sx<0?TILE:0),y+(sy<0?TILE:0));
+  ctx.scale(sx,sy);
+  ctx.strokeStyle='rgba(222,228,238,0.20)'; ctx.lineWidth=1.1;
+  for(let i=0;i<4;i++){
+    const a=0.22+i*0.42;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*22,Math.sin(a)*22); ctx.stroke();
+  }
+  for(let r=6;r<=20;r+=6){
+    ctx.beginPath(); ctx.arc(0,0,r,0.18,1.4); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawBones(ctx,x,y){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(232,226,206,0.72)';
+  ctx.beginPath(); ctx.arc(-4,0.5,4.2,0,7); ctx.fill();
+  ctx.fillStyle='rgba(40,28,18,0.85)';
+  ctx.beginPath(); ctx.arc(-5.4,-0.2,1,0,7); ctx.arc(-2.6,-0.2,1,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(232,226,206,0.66)'; ctx.lineWidth=2; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(3,2); ctx.lineTo(9.5,-2); ctx.moveTo(4,4.5); ctx.lineTo(10.5,1.5); ctx.stroke();
+  ctx.restore();
+}
+function drawBarrel(ctx,x,y){
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,0.24)'; ctx.beginPath(); ctx.ellipse(0,8,9,3,0,0,7); ctx.fill();
+  ctx.fillStyle='#7a4e26'; rr(ctx,-7,-8,14,16,3); ctx.fill();
+  ctx.fillStyle='#8f6238'; ctx.beginPath(); ctx.ellipse(0,-8,7,2.6,0,0,7); ctx.fill();
+  ctx.fillStyle='#5f3a1a'; ctx.fillRect(-7,-4,14,2); ctx.fillRect(-7,3,14,2);
+  ctx.fillStyle='#3f2a16'; ctx.fillRect(-7,-8,14,1.6);
+  ctx.fillStyle='rgba(255,220,170,0.12)'; ctx.fillRect(-5,-6,2,12);
+  ctx.restore();
+}
+function drawMushCluster(ctx,x,y,t){
+  ctx.save(); ctx.translate(x,y);
+  for(let i=0;i<3;i++){
+    const ox=[-4,3,0][i], oy=[1,2,-3][i], s=[0.8,0.65,0.55][i];
+    const bob=Math.sin(t*2+i)*0.5;
+    ctx.fillStyle='#f2e3c2'; ctx.fillRect(ox-1*s,oy-3*s+bob,2*s,4*s);
+    ctx.fillStyle='#c4453c'; ctx.beginPath(); ctx.ellipse(ox,oy-4*s+bob,4*s,2.6*s,0,Math.PI,0); ctx.fill();
+    ctx.fillStyle='#ffd9d2'; ctx.beginPath(); ctx.arc(ox-1.2*s,oy-5*s+bob,0.8*s,0,7); ctx.arc(ox+1.4*s,oy-4.6*s+bob,0.6*s,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawDecor(ctx){
+  for(const d of G.decor){
+    const key=Math.floor(d.x)+','+Math.floor(d.y);
+    if(!G.explored.has(key)) continue;
+    const px=d.x*TILE, py=d.y*TILE;
+    if(d.kind==='fire') drawCampfire(ctx,px,py,G.time);
+    else if(d.kind==='web') drawWeb(ctx,px,py,d.corner,G.time);
+    else if(d.kind==='bones') drawBones(ctx,px,py);
+    else if(d.kind==='barrel') drawBarrel(ctx,px,py);
+    else if(d.kind==='mush') drawMushCluster(ctx,px,py,G.time);
+  }
+}
+
 /* ===== 地牢生成 ===== */
 function carve(x,y,w,h){
   const x0=clamp(x,0,MAP_W-1), y0=clamp(y,0,MAP_H-1);
@@ -908,7 +1003,7 @@ function spawnEnemy(kind,x,y){
 function genFloor(){
   G.map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
   G.rooms=[]; G.ents=[]; G.shots=[]; G.items=[]; G.chests=[]; G.shop=null; G.torches=[];
-  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[];
+  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[]; G.decor=[];
   if(G.floor===FLOORS){ genBossFloor(); return; }
   const gcols=4, grows=3, cw=Math.floor(MAP_W/gcols), ch=Math.floor(MAP_H/grows);
   for(let gy=0;gy<grows;gy++)for(let gx=0;gx<gcols;gx++){
@@ -946,6 +1041,22 @@ function genFloor(){
     if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+0.5});
     if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+r.h-0.5});
   }
+  /* 地图装饰：篝火、蜘蛛网、骨头、木桶、蘑菇丛 */
+  const fireRooms=shuffle(G.rooms.filter(r=>r!==start&&r!==far&&r!==mid).slice());
+  for(let i=0;i<Math.min(2,fireRooms.length);i++){
+    const r=fireRooms[i];
+    G.decor.push({kind:'fire',x:r.cx+0.5,y:r.cy+0.5,t:R(0,6)});
+  }
+  for(const r of G.rooms){
+    const cs=[[r.x,r.y,0],[r.x+r.w-1,r.y,1],[r.x+r.w-1,r.y+r.h-1,2],[r.x,r.y+r.h-1,3]];
+    for(const c of cs) if(chance(0.55)) G.decor.push({kind:'web',x:c[0],y:c[1],corner:c[2]});
+  }
+  for(let i=0;i<RI(10,15);i++){
+    const r=pick(G.rooms);
+    const x=chance(0.5)?r.x+0.45:r.x+r.w-0.75;
+    const y=r.y+0.6+Math.random()*Math.max(0.4,r.h-1.2);
+    G.decor.push({kind:pick(['bones','bones','barrel','mush']),x,y});
+  }
   const list=FLOOR_ENEMIES[Math.min(G.floor-1,3)];
   const spots=others.slice();
   for(const pair of list) for(let i=0;i<pair[1];i++){
@@ -959,6 +1070,12 @@ function genBossFloor(){
   G.cage={x:Math.floor(MAP_W/2)+0.5,y:6.5,broken:false};
   G.princess={x:G.cage.x,y:G.cage.y-1.5,face:1};
   for(let i=2;i<MAP_W-2;i+=4){ G.torches.push({x:i+0.5,y:3.5}); G.torches.push({x:i+0.5,y:MAP_H-3.5}); }
+  /* 熊王殿装饰：两侧篝火、四角蛛网、散落骨头 */
+  for(let i=8;i<MAP_W-8;i+=12) G.decor.push({kind:'fire',x:i+0.5,y:MAP_H-6.5,t:R(0,6)});
+  [[2,2,0],[MAP_W-3,2,1],[MAP_W-3,MAP_H-3,2],[2,MAP_H-3,3]].forEach(c=>
+    G.decor.push({kind:'web',x:c[0],y:c[1],corner:c[2]}));
+  for(let i=0;i<12;i++) G.decor.push({kind:pick(['bones','barrel']),
+    x:3+Math.random()*(MAP_W-6),y:3+Math.random()*(MAP_H-7)});
   P.x=MAP_W/2+0.5; P.y=MAP_H-5;
   G.items.push({kind:'potion',pkind:'dmg',x:P.x-2.2,y:P.y-1});
   G.items.push({kind:'potion',pkind:'aspd',x:P.x+2.2,y:P.y-1});
@@ -1391,6 +1508,7 @@ function render(){
   pctx.translate(Math.round(-G.cam.x+shx),Math.round(-G.cam.y+shy));
   drawTiles();
   for(const b of G.blood) drawBlood(ctx,b);
+  drawDecor(ctx);
   for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time);
   if(G.stairs) drawStairs(ctx,G.stairs.x*TILE,G.stairs.y*TILE,G.stairs.active);
   for(const c of G.chests) drawChest(ctx,c.x*TILE,c.y*TILE,c.opened,G.time);
@@ -1574,6 +1692,10 @@ function drawLighting(){
       for(const t of G.torches){
         const tx=t.x*TILE-G.cam.x, ty=t.y*TILE-G.cam.y;
         if(tx>-200&&tx<PW+200&&ty>-200&&ty<PH+200) lp(tx,ty,5*TILE,0.9);
+      }
+      for(const d of G.decor) if(d.kind==='fire'){
+        const tx=d.x*TILE-G.cam.x, ty=d.y*TILE-G.cam.y;
+        if(tx>-220&&tx<PW+220&&ty>-220&&ty<PH+220) lp(tx,ty,4.6*TILE,0.92);
       }
       ctx.drawImage(G.lightCv,0,0);
       return;
