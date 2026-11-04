@@ -74,6 +74,19 @@ canvas#game{image-rendering:pixelated}
 #view-title .btn.ghost{background:rgba(72,16,12,.55);color:#f2b7a6;border-color:#8a2a22;box-shadow:0 4px 0 #3a0f0b}
 #view-title .btn.big{font-size:19px;padding:12px 30px}
 #view-title .btn:focus-visible{outline-color:#ff9a86}
+#view-title .btn{position:relative;overflow:hidden}
+#view-title .btn::before,#view-title .btn::after{
+  content:"";position:absolute;pointer-events:none;background-repeat:no-repeat;background-size:contain;
+  opacity:.85;
+}
+#view-title .btn::before{
+  left:14px;bottom:3px;width:28px;height:28px;transform:rotate(-16deg);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='%233d0402'%3E%3Crect x='20' y='26' width='24' height='24' rx='11'/%3E%3Crect x='20' y='9' width='6' height='22' rx='3' transform='rotate(6 23 20)'/%3E%3Crect x='28' y='5' width='6' height='25' rx='3'/%3E%3Crect x='36' y='8' width='6' height='23' rx='3' transform='rotate(-5 39 19)'/%3E%3Crect x='43' y='15' width='5' height='17' rx='2.5' transform='rotate(-14 45 23)'/%3E%3Crect x='10' y='27' width='6' height='14' rx='3' transform='rotate(-34 13 34)'/%3E%3C/g%3E%3C/svg%3E");
+}
+#view-title .btn::after{
+  right:12px;top:7px;width:52px;height:30px;transform:rotate(8deg);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 64'%3E%3Cg fill='%233d0402'%3E%3Cg transform='translate(6 8) rotate(-12 10 10)'%3E%3Cellipse cx='10' cy='10' rx='5' ry='7'/%3E%3Cellipse cx='5' cy='3' rx='2' ry='2.4'/%3E%3Cellipse cx='10' cy='1.6' rx='2' ry='2.4'/%3E%3Cellipse cx='15' cy='3' rx='2' ry='2.4'/%3E%3C/g%3E%3Cg transform='translate(44 22) rotate(10 10 10)'%3E%3Cellipse cx='10' cy='10' rx='5' ry='7'/%3E%3Cellipse cx='5' cy='3' rx='2' ry='2.4'/%3E%3Cellipse cx='10' cy='1.6' rx='2' ry='2.4'/%3E%3Cellipse cx='15' cy='3' rx='2' ry='2.4'/%3E%3C/g%3E%3Cg transform='translate(74 4) rotate(-8 10 10)'%3E%3Cellipse cx='10' cy='10' rx='5' ry='7'/%3E%3Cellipse cx='5' cy='3' rx='2' ry='2.4'/%3E%3Cellipse cx='10' cy='1.6' rx='2' ry='2.4'/%3E%3Cellipse cx='15' cy='3' rx='2' ry='2.4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
 .ctrl-card{
   margin-top:10px;max-width:520px;width:100%;background:rgba(36,10,8,.86);border:2px solid #6e1f1a;
   border-radius:14px;padding:12px 16px;font-size:14px;color:#e3c0b3;
@@ -250,6 +263,7 @@ body.coarse #touch{display:block}
       <div class="sub">
         <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v2H7zM7 4c0-2 10-2 10 0v2c2 1 3 2 3 5v9H4v-9c0-3 1-4 3-5V4z" fill="#ffc860"/><circle cx="12" cy="14" r="2.2" fill="#8a4a12"/></svg><b id="honeynum">0</b></span>
         <span class="chip">攻 <b id="atknum"></b></span>
+        <span class="chip">距 <b id="rangenum"></b></span>
       </div>
     </div>
     <div class="hud-r">
@@ -479,19 +493,29 @@ const SCROLLS=[
   {id:'ls',   name:'吸血藤蔓', desc:'每次击杀回复 3 点生命', ic:'drop'}
 ];
 
+/* ===== 地面药剂（局内成长，有上限防止数值膨胀） ===== */
+const POTION_CAP={dmg:12,aspd:8,range:4};
+const POTIONS={
+  dmg:{name:'力量药剂', desc:'攻击力 +5', col:'#ff6a52'},
+  aspd:{name:'急速药剂', desc:'攻速 +15%', col:'#7fd0e8'},
+  range:{name:'磨刃药剂', desc:'攻击距离 +0.25 格', col:'#9ee07a'}
+};
+
 /* ===== 敌人配置 ===== */
 const EDEF={
   bee :{name:'疯狂蜜蜂', hp:22,  dmg:7,  spd:3.5, r:0.32, coin:1, wood:1},
   boar:{name:'暴躁野猪', hp:70,  dmg:14, spd:2.3, r:0.42, coin:2, wood:2},
   mush:{name:'毒蘑菇',   hp:46,  dmg:10, spd:0,   r:0.40, coin:2, wood:2},
   bear:{name:'熊兵',     hp:130, dmg:24, spd:1.9, r:0.46, coin:4, wood:3},
+  spider:{name:'洞穴蜘蛛', hp:34, dmg:9, spd:2.7, r:0.34, coin:2, wood:2},
+  bat:{name:'吸血蝙蝠', hp:26, dmg:8, spd:3.0, r:0.30, coin:2, wood:1},
   boss:{name:'暗黑熊王', hp:950, dmg:30, spd:1.45,r:0.80, coin:30,wood:20}
 };
 const FLOOR_ENEMIES=[
-  [['bee',2],['boar',2],['mush',1],['bear',1]],
-  [['bee',3],['boar',2],['mush',2],['bear',2]],
-  [['bee',3],['boar',3],['mush',2],['bear',3]],
-  [['bee',4],['boar',3],['mush',3],['bear',4]]
+  [['bee',2],['boar',2],['mush',1],['bear',1],['spider',1]],
+  [['bee',3],['boar',2],['mush',2],['bear',2],['spider',2],['bat',1]],
+  [['bee',3],['boar',3],['mush',2],['bear',3],['spider',2],['bat',2]],
+  [['bee',4],['boar',3],['mush',3],['bear',4],['spider',3],['bat',2]]
 ];
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 
@@ -499,9 +523,9 @@ const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[], chests:[], shop:null,
   stairs:null, torches:[], cage:null, princess:null, explored:new Set(), cam:{x:0,y:0},
   time:0, paused:false, bossDead:false, clear:false, shake:0, overTimer:0, winTimer:0,
-  scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0},
+  scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
-const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,invuln:0,flash:0,
+const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,walk:0,alive:true,atkBtn:false};
 const FLOOR_DIFF={};
 function floorMul(){return {hp:1+(G.floor-1)*0.35, dmg:1+(G.floor-1)*0.15};}
@@ -525,12 +549,14 @@ function drawPlayer(ctx,x,y){
   ctx.strokeStyle='#2f5488'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(-5,-3+bob*0.3); ctx.lineTo(-5,4+bob*0.3); ctx.moveTo(5,-3+bob*0.3); ctx.lineTo(5,4+bob*0.3); ctx.stroke();
   ctx.fillStyle='#f2c49b'; rr(ctx,-10,0+bob*0.3,5,6,2); ctx.fill();
-  ctx.save(); ctx.translate(8,-2+bob*0.3); ctx.rotate(P.swing*1.1);
+  const swT=P.swing>0?1-P.swing/P.swingDur:1;
+  const swAng=P.swing>0?(-1.5+swT*2.9):0.12;
+  ctx.save(); ctx.translate(8,-2+bob*0.3); ctx.rotate(swAng);
   ctx.fillStyle='#f2c49b'; rr(ctx,-4,-2,7,5,2); ctx.fill();
   ctx.fillStyle='#8b8f94'; rr(ctx,2,-5,11,8,2); ctx.fill();
   ctx.fillStyle='#4a4e53'; ctx.fillRect(3,-4,9,2); ctx.fillRect(3,1,9,2);
   ctx.fillStyle='#c9ccd0'; ctx.beginPath(); ctx.arc(14,0,3.6,0,7); ctx.fill();
-  for(let i=0;i<6;i++){const a=i*Math.PI/3+P.swing*2.2; ctx.fillStyle='#d9dde1';
+  for(let i=0;i<6;i++){const a=i*Math.PI/3+swT*5; ctx.fillStyle='#d9dde1';
     ctx.beginPath(); ctx.arc(14+Math.cos(a)*2.7,Math.sin(a)*2.7,1.2,0,7); ctx.fill();}
   ctx.restore();
   ctx.fillStyle='#f2c49b'; ctx.beginPath(); ctx.arc(-1,-12+bob,8.8,0,7); ctx.fill();
@@ -628,6 +654,42 @@ function drawMush(ctx,x,y,t,flash){
   ctx.fillStyle='#ffd9d2'; ctx.beginPath(); ctx.arc(-4.5,-5+bob,1.7,0,7); ctx.arc(1,-6.5+bob,1.4,0,7); ctx.arc(5.5,-4+bob,1.5,0,7); ctx.fill();
   ctx.fillStyle='#5a2a1a'; ctx.beginPath(); ctx.arc(-2.5,-1+bob,1.2,0,7); ctx.arc(2.5,-1+bob,1.2,0,7); ctx.fill();
   ctx.strokeStyle='#5a2a1a'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.moveTo(-4,1.4+bob);ctx.quadraticCurveTo(0,3.4+bob,4,1.4+bob);ctx.stroke();
+  ctx.restore();
+}
+
+/* ---- 洞穴蜘蛛 ---- */
+function drawSpider(ctx,x,y,t,face,flash){
+  const bob=Math.sin(t*10)*1.2;
+  ctx.save(); ctx.translate(x,y); ctx.scale(face,1);
+  if(flash>0) ctx.globalAlpha=0.55;
+  ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(0,3,10,3.4,0,0,7); ctx.fill();
+  ctx.strokeStyle='#3a2a3a'; ctx.lineWidth=1.8; ctx.lineCap='round';
+  for(let i=0;i<4;i++){
+    const o=(i-1.5)*2.6, ph=Math.sin(t*12+i)*1.6;
+    ctx.beginPath(); ctx.moveTo(-6+o,1); ctx.lineTo(-12+o,6+ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6+o,1); ctx.lineTo(12+o,6-ph); ctx.stroke();
+  }
+  ctx.fillStyle='#4a3350'; ctx.beginPath(); ctx.ellipse(0,-1+bob*0.4,8,6,0,0,7); ctx.fill();
+  ctx.fillStyle='#2e1f36'; ctx.beginPath(); ctx.ellipse(0,-6+bob*0.4,5,4.4,0,0,7); ctx.fill();
+  ctx.fillStyle='#ff4a3c'; ctx.beginPath(); ctx.arc(-3,-6.5+bob*0.4,1.2,0,7); ctx.arc(3,-6.5+bob*0.4,1.2,0,7); ctx.fill();
+  ctx.fillStyle='#ffd27a'; ctx.beginPath(); ctx.arc(-3,-6.5+bob*0.4,0.45,0,7); ctx.arc(3,-6.5+bob*0.4,0.45,0,7); ctx.fill();
+  ctx.restore();
+}
+
+/* ---- 吸血蝙蝠 ---- */
+function drawBat(ctx,x,y,t,face){
+  const flap=Math.sin(t*15)*3.2;
+  ctx.save(); ctx.translate(x,y); ctx.scale(face,1);
+  ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0,2,8,2.6,0,0,7); ctx.fill();
+  ctx.fillStyle='#3a2b3f';
+  ctx.beginPath(); ctx.moveTo(0,-2); ctx.lineTo(-13,-6-flap); ctx.lineTo(-9,2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0,-2); ctx.lineTo(13,-6-flap); ctx.lineTo(9,2); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#2a1f30'; ctx.beginPath(); ctx.ellipse(0,-2,5,5.6,0,0,7); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-3.6,-6); ctx.lineTo(-5.4,-11); ctx.lineTo(-1.2,-7.4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(3.6,-6); ctx.lineTo(5.4,-11); ctx.lineTo(1.2,-7.4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ff5a44'; ctx.beginPath(); ctx.arc(-1.8,-3,1.1,0,7); ctx.arc(1.8,-3,1.1,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(-1.6,0.6); ctx.lineTo(-0.4,2.6); ctx.lineTo(-2.6,2.2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(1.6,0.6); ctx.lineTo(0.4,2.6); ctx.lineTo(2.6,2.2); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
 
@@ -736,6 +798,19 @@ function drawHoney(ctx,x,y,t){
   ctx.fillStyle='rgba(255,255,255,'+gl.toFixed(2)+')'; ctx.beginPath(); ctx.arc(0,-1+bob,1.8,0,7); ctx.fill();
   ctx.restore();
 }
+function drawPotion(ctx,x,y,t,kind){
+  const p=POTIONS[kind]||POTIONS.dmg;
+  const bob=Math.sin(t*3+1)*1.4;
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,0.2)'; ctx.beginPath(); ctx.ellipse(0,5,6,2.4,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(230,240,255,0.32)'; rr(ctx,-4,-6+bob,8,11,3); ctx.fill();
+  ctx.fillStyle=p.col; rr(ctx,-3.2,-2.4+bob,6.4,7,2.4); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.75)'; ctx.fillRect(-2.4,-5+bob,1.6,4);
+  ctx.fillStyle='#6e5436'; ctx.fillRect(-2.2,-9+bob,4.4,3.2);
+  ctx.fillStyle='rgba(255,255,255,'+(0.35+Math.sin(t*6)*0.2).toFixed(2)+')';
+  ctx.beginPath(); ctx.arc(0,-1+bob,1.2,0,7); ctx.fill();
+  ctx.restore();
+}
 
 /* ===== 地牢生成 ===== */
 function carve(x,y,w,h){
@@ -767,9 +842,12 @@ function moveE(e,dx,dy){
   if(dy){const ny=e.y+dy; if(!touchesWall(e.x,ny,e.r)) e.y=ny;}
 }
 function floorMul(){return {hp:1+(G.floor-1)*0.35, dmg:1+(G.floor-1)*0.15};}
+/* 怪物移速随层数小幅提升，封顶 +14%，不叠加其他倍率 */
+const ENEMY_SPD_STEP=0.035, ENEMY_SPD_CAP=0.14;
+function enemySpdMul(){return 1+Math.min(ENEMY_SPD_CAP,Math.max(0,G.floor-1)*ENEMY_SPD_STEP);}
 function spawnEnemy(kind,x,y){
   const d=EDEF[kind], fm=floorMul();
-  const e={kind,x,y,hp:d.hp*fm.hp,maxHp:d.hp*fm.hp,dmg:d.dmg*fm.dmg,spd:d.spd,r:d.r,
+  const e={kind,x,y,hp:d.hp*fm.hp,maxHp:d.hp*fm.hp,dmg:d.dmg*fm.dmg,spd:d.spd*enemySpdMul(),r:d.r,
     t:R(0,6),state:'idle',st:0,cd:R(1,2),flash:0,face:1,dead:false,coin:d.coin,wood:d.wood};
   G.ents.push(e);
   return e;
@@ -805,6 +883,13 @@ function genFloor(){
   for(let i=0;i<chestN&&i<others.length;i++) G.chests.push({x:others[i].cx+0.5,y:others[i].cy+0.5,opened:false});
   const honeys=RI(1,3);
   for(let i=0;i<honeys;i++){ const r=pick(others); G.items.push({kind:'honey',x:r.cx+0.3+Math.random()*0.4,y:r.cy+0.3+Math.random()*0.4}); }
+  /* 地面药剂：攻速 / 攻击距离 / 伤害 */
+  const potionN=RI(3,5);
+  for(let i=0;i<potionN;i++){
+    const r=pick(others);
+    G.items.push({kind:'potion',pkind:pick(['dmg','aspd','range']),
+      x:r.cx+0.2+Math.random()*0.6,y:r.cy+0.2+Math.random()*0.6});
+  }
   for(const r of G.rooms){
     if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+0.5});
     if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+r.h-0.5});
@@ -823,12 +908,16 @@ function genBossFloor(){
   G.princess={x:G.cage.x,y:G.cage.y-1.5,face:1};
   for(let i=2;i<MAP_W-2;i+=4){ G.torches.push({x:i+0.5,y:3.5}); G.torches.push({x:i+0.5,y:MAP_H-3.5}); }
   P.x=MAP_W/2+0.5; P.y=MAP_H-5;
+  G.items.push({kind:'potion',pkind:'dmg',x:P.x-2.2,y:P.y-1});
+  G.items.push({kind:'potion',pkind:'aspd',x:P.x+2.2,y:P.y-1});
   spawnEnemy('boss',MAP_W/2+0.5,Math.floor(MAP_H/2)+1);
   for(let i=0;i<4;i++) spawnEnemy('bee',MAP_W/2+R(-8,8),Math.floor(MAP_H/2)+R(-3,3));
+  spawnEnemy('spider',MAP_W/2-6,Math.floor(MAP_H/2)+3);
+  spawnEnemy('bat',MAP_W/2+6,Math.floor(MAP_H/2)+2);
   resetRunState();
 }
 function resetRunState(){
-  G.scrolls={dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0};
+  G.scrolls={dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0};
   computeStats();
   P.hp=P.maxHp; P.coins=0; P.atkCd=0; P.swing=0; P.invuln=0; P.flash=0; P.alive=true; P.walk=0;
   P.honey=1+meta.ups.honey;
@@ -837,11 +926,12 @@ function resetRunState(){
 }
 function computeStats(){
   P.maxHp=100+meta.ups.hp*15+G.scrolls.hp*20;
-  P.dmg=18+meta.ups.dmg*4+G.scrolls.dmg*5;
+  P.dmg=18+meta.ups.dmg*4+Math.min(G.scrolls.dmg,POTION_CAP.dmg)*5;
   P.spd=3.1*(1+meta.ups.spd*0.04+G.scrolls.spd*0.08);
   P.critCh=G.scrolls.crit*0.10;
   P.ls=G.scrolls.ls*3;
-  P.aspdMul=Math.pow(0.85,G.scrolls.aspd);
+  P.aspdMul=Math.pow(0.85,Math.min(G.scrolls.aspd,POTION_CAP.aspd));
+  P.atkRange=2.0+Math.min(G.scrolls.range,POTION_CAP.range)*0.25;
   P.hp=Math.min(P.hp||P.maxHp,P.maxHp);
 }
 
@@ -852,7 +942,12 @@ function spawnBits(x,y,n,col){
     col:col||pick(['#ffc860','#ffe9b8','#ff8a5e']),size:R(1.5,3),grav:5});
 }
 function spawnSlash(){
-  for(let i=0;i<9;i++){const a=i/9*Math.PI*2; parts.push({x:P.x,y:P.y,vx:Math.cos(a)*3.8,vy:Math.sin(a)*3.8,life:0.22,col:'#fff3d0',size:3,grav:0});}
+  const base=P.face>0?0:Math.PI;
+  for(let i=0;i<10;i++){
+    const a=base-1.0+i/9*2.0;
+    parts.push({x:P.x,y:P.y,vx:Math.cos(a)*R(3.6,4.8),vy:Math.sin(a)*R(3.6,4.8),
+      life:R(0.18,0.26),col:'#fff3d0',size:3,grav:0});
+  }
 }
 function addDmgNum(x,y,v,crit){ dnums.push({x,y,v:Math.round(v),crit:!!crit,life:0.8}); }
 function updateFx(dt){
@@ -862,22 +957,22 @@ function updateFx(dt){
 
 /* ===== 战斗 ===== */
 function attack(){
-  P.atkCd=0.42*P.aspdMul; P.swing=0.24;
+  P.atkCd=0.42*P.aspdMul; P.swing=P.swingDur;
   AU.play('swing'); spawnSlash(); G.shake=Math.max(G.shake,1.6);
-  const r=2.0;
+  const face=P.face||1;
   for(const e of G.ents){
     if(e.dead) continue;
-    const d=dist(P.x,P.y,e.x,e.y);
-    if(d<r+e.r*0.6){
-      const crit=chance(P.critCh||0);
-      const dmg=P.dmg*(crit?2:1);
-      e.hp-=dmg; e.flash=0.14;
-      const kx=(e.x-P.x)/(d||0.001), ky=(e.y-P.y)/(d||0.001);
-      moveE(e,kx*0.3,ky*0.3);
-      if(crit) AU.play('crit'); else AU.play('hit');
-      addDmgNum(e.x,e.y,dmg,crit);
-      if(e.hp<=0) killEnemy(e);
-    }
+    const dx=e.x-P.x, dy=e.y-P.y, d=Math.hypot(dx,dy)||0.001;
+    if(d>P.atkRange+e.r*0.6) continue;
+    if(dx*face < -0.32*d) continue;   /* 挥砍打不到正后方 */
+    const crit=chance(P.critCh||0);
+    const dmg=P.dmg*(crit?2:1);
+    e.hp-=dmg; e.flash=0.14;
+    const kx=dx/d, ky=dy/d;
+    moveE(e,kx*0.3,ky*0.3);
+    if(crit) AU.play('crit'); else AU.play('hit');
+    addDmgNum(e.x,e.y,dmg,crit);
+    if(e.hp<=0) killEnemy(e);
   }
 }
 function killEnemy(e){
@@ -953,6 +1048,18 @@ function updateEnemy(e,dt){
     e.atk=Math.max(0,(e.atk||0)-dt);
   }else if(e.kind==='bear'){
     moveE(e,dx/d*e.spd*dt,dy/d*e.spd*dt);
+  }else if(e.kind==='spider'){
+    if(e.state!=='dash'&&d<3.4&&e.cd<=0){ e.state='dash'; e.st=0.3; e.cd=2.0; e.ddx=dx/d; e.ddy=dy/d; }
+    if(e.state==='dash'){
+      e.st-=dt; moveE(e,e.ddx*e.spd*2.1*dt,e.ddy*e.spd*2.1*dt);
+      if(e.st<=0) e.state='idle';
+    }else{
+      moveE(e,dx/d*e.spd*0.72*dt,dy/d*e.spd*0.72*dt);
+    }
+  }else if(e.kind==='bat'){
+    const wob=Math.sin(e.t*7)*0.85;
+    const ang=Math.atan2(dy,dx)+wob;
+    moveE(e,Math.cos(ang)*e.spd*0.85*dt,Math.sin(ang)*e.spd*0.85*dt);
   }else if(e.kind==='boss'){
     updateBoss(e,dt,d,dx,dy);
   }
@@ -1087,6 +1194,7 @@ const $=id=>document.getElementById(id);
 const cv=$('game'); let ctx=cv.getContext('2d');
 const PIXC=document.createElement('canvas'), pctx=PIXC.getContext('2d');
 const hud=$('hud'), hpfill=$('hpfill'), hpnum=$('hpnum'), honeynum=$('honeynum'), atknum=$('atknum'),
+  rangenum=$('rangenum'),
   coinNum=$('coinNum'), runWood=$('runWood'), floorNum=$('floorNum'), floorName=$('floorName'),
   killNum=$('killNum'), toastsEl=$('toasts'), mini=$('mini'), mctx=mini.getContext('2d');
 let W=0,H=0,DPR=1,last=0,PW=0,PH=0,PS=3;
@@ -1127,6 +1235,15 @@ function update(dt){
     const it=G.items[i];
     if(dist(P.x,P.y,it.x,it.y)<0.55){
       if(it.kind==='honey'){ P.honey++; if(heal(20)) toast('捡到蜂蜜，恢复 20 生命'); else toast('捡到蜂蜜 +1'); AU.play('pick'); }
+      else if(it.kind==='potion'){
+        const cap=POTION_CAP[it.pkind]||9;
+        if(G.scrolls[it.pkind]>=cap){ addCoins(5); toast(POTIONS[it.pkind].name+'已满，转化为 5 金币'); }
+        else{
+          G.scrolls[it.pkind]++; computeStats();
+          toast('捡到'+POTIONS[it.pkind].name+'：'+POTIONS[it.pkind].desc);
+          AU.play('chest');
+        }
+      }
       G.items.splice(i,1);
     }
   }
@@ -1172,6 +1289,7 @@ function updateHud(){
   hpnum.textContent=Math.ceil(P.hp)+' / '+P.maxHp;
   honeynum.textContent=P.honey;
   atknum.textContent=P.dmg;
+  if(rangenum) rangenum.textContent=P.atkRange.toFixed(2);
   coinNum.textContent=P.coins;
   runWood.textContent=G.run.wood;
   floorNum.textContent=G.floor;
@@ -1201,7 +1319,10 @@ function render(){
   }else if(G.princess){
     drawPrincess(ctx,G.princess.x*TILE,G.princess.y*TILE,G.time,G.princess.face);
   }
-  for(const it of G.items) drawHoney(ctx,it.x*TILE,it.y*TILE,G.time);
+  for(const it of G.items){
+    if(it.kind==='potion') drawPotion(ctx,it.x*TILE,it.y*TILE,G.time,it.pkind);
+    else drawHoney(ctx,it.x*TILE,it.y*TILE,G.time);
+  }
   for(const s of G.shots){
     if(s.kind==='spore'){
       ctx.fillStyle='#7fd0a8'; ctx.beginPath(); ctx.arc(s.x*TILE,s.y*TILE,s.r*TILE,0,7); ctx.fill();
@@ -1214,6 +1335,8 @@ function render(){
     if(e.kind==='bee') drawBee(ctx,px,py,e.t,e.face);
     else if(e.kind==='boar') drawBoar(ctx,px,py,e.t,e.face,e.flash);
     else if(e.kind==='mush') drawMush(ctx,px,py,e.t,e.flash);
+    else if(e.kind==='spider') drawSpider(ctx,px,py,e.t,e.face,e.flash);
+    else if(e.kind==='bat') drawBat(ctx,px,py,e.t,e.face);
     else if(e.kind==='bear') drawBear(ctx,px,py,e.t,e.face,e.flash,false);
     else if(e.kind==='boss') drawBear(ctx,px,py,e.t,e.face,e.flash,true);
   }
@@ -1237,13 +1360,23 @@ function render(){
   ctx.drawImage(PIXC,0,0,W,H);
   /* 主画布是屏幕像素，世界坐标必须先减相机再乘 PS，否则特效会跑到左上角 */
   if(P.swing>0&&P.alive){
-    const a0=G.time*22;
-    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=1.8*TILE*PS;
+    const t=1-P.swing/P.swingDur;                 /* 0→1 挥砍进度 */
+    const dir=P.face>0?0:Math.PI;
+    const half=1.22;
+    const a0=dir-half;
+    const a1=a0+half*2*Math.min(1,t*1.5);
+    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=P.atkRange*TILE*PS;
     ctx.save();
-    ctx.strokeStyle='rgba(255,240,200,0.85)'; ctx.lineWidth=3*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr,a0,a0+4.4); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=1.6*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0+0.3,a0+4.1); ctx.stroke();
+    ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,236,170,0.26)'; ctx.lineWidth=7*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0,a1); ctx.stroke();
+    ctx.strokeStyle='rgba(255,247,214,0.9)'; ctx.lineWidth=2.6*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,a0,a1); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,0.55)'; ctx.lineWidth=1.2*PS;
+    ctx.beginPath(); ctx.arc(sx,sy,sr*0.78,a0+0.08,a1-0.04); ctx.stroke();
+    const ex=sx+Math.cos(a1)*sr*0.94, ey=sy+Math.sin(a1)*sr*0.94;
+    ctx.fillStyle='rgba(255,180,90,0.55)'; ctx.beginPath(); ctx.arc(ex,ey,5*PS,0,7); ctx.fill();
+    ctx.fillStyle='rgba(255,250,220,0.95)'; ctx.beginPath(); ctx.arc(ex,ey,2.2*PS,0,7); ctx.fill();
     ctx.restore();
   }
   ctx.save();
