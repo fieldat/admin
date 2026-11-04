@@ -110,6 +110,27 @@ main {
 .card.roulette { --glow: rgba(255,84,150,.5); --line: rgba(255,84,150,.55); --acc: #FF7FB0; --tile: linear-gradient(135deg, rgba(255,84,150,.28), rgba(196,19,232,.22)); }
 .card.meet     { --glow: rgba(124,140,255,.5);  --line: rgba(124,140,255,.55); --acc: #9FADFF; --tile: linear-gradient(135deg, rgba(124,140,255,.28), rgba(232,137,12,.18)); }
 
+/* ===== 游戏大卡（宣传图 + 文案横排） ===== */
+.card.game {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  align-items: stretch;
+  padding: 0;
+  --glow: rgba(255,178,84,.5);
+  --line: rgba(255,178,84,.6);
+  --acc: #FFC860;
+}
+.card.game .cover { position: relative; overflow: hidden; background: #120c06; }
+.card.game .cover img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+.card.game:hover .cover img { transform: scale(1.035); }
+.card.game .cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 52%, rgba(20,24,36,.7)); pointer-events: none; }
+.card.game .body { padding: 28px; display: flex; flex-direction: column; justify-content: center; position: relative; z-index: 1; }
+.card.game .kicker { font-size: 11px; letter-spacing: .22em; font-weight: 700; color: var(--acc); margin-bottom: 9px; }
+.card.game h2 { font-size: 24px; }
+.card.game .desc { font-size: 14px; line-height: 1.65; max-width: 34em; }
+.card.game .go { margin-top: 18px; }
+
 /* ===== 页脚 ===== */
 .foot {
   padding: 16px 24px 22px;
@@ -129,6 +150,11 @@ main {
   .hero p { font-size: 13.5px; }
   .grid { grid-template-columns: 1fr; gap: 16px; }
   .card { padding: 22px 20px 20px; }
+  .card.game { grid-template-columns: 1fr; }
+  .card.game .cover { aspect-ratio: 16 / 9; }
+  .card.game .body { padding: 20px; }
+  .card.game h2 { font-size: 21px; }
+  .card.game .cover::after { background: none; }
 }
 </style>
 </head>
@@ -177,6 +203,20 @@ main {
       <span class="go">进入工具
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </span>
+    </a>
+
+    <a class="card game" href="rouge.html">
+      <div class="cover">
+        <img src="assets/rouge-cover.jpg" alt="光头强勇救吉吉公主：熊王地牢主视觉" width="1200" height="675" loading="lazy">
+      </div>
+      <div class="body">
+        <span class="kicker">ROGUELIKE · 地牢闯关</span>
+        <h2>光头强勇救吉吉公主</h2>
+        <p class="desc">熊王掳走了吉吉公主。抄起电锯杀进五层随机地牢：回旋斩、宝箱、猫头鹰杂货铺，再带着木材回营地永久变强。</p>
+        <span class="go">开始闯关
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </div>
     </a>
 
   </div>
