@@ -524,7 +524,7 @@ const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[], chests:[], shop:null,
   stairs:null, torches:[], cage:null, princess:null, explored:new Set(), cam:{x:0,y:0},
   time:0, paused:false, bossDead:false, clear:false, shake:0, overTimer:0, winTimer:0,
-  blood:[], corpses:[], decor:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
+  blood:[], corpses:[], decor:[], traps:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
 const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,dir:'down',moving:false,walk:0,alive:true,atkBtn:false,
@@ -567,16 +567,28 @@ function drawSawItem(ctx,x,y,rot,sc){
   ctx.restore();
 }
 function clampNum(v,a,b){ v=Number.isFinite(v)?v:0; return v<a?a:(v>b?b:v); }
+/* 一条腿的步态相位（u 为一步的进度）：
+   0~0.62 支撑相——脚掌踩在地上、相对身体往后推；0.62~1 摆动相——抬脚快速迈回。
+   f=+1 表示这条腿踏在身体前方，f=-1 表示蹬在身后，lift 是抬脚量 */
+const GAIT_STANCE=0.62;
+function legPhase(u){
+  u-=Math.floor(u);
+  if(u<GAIT_STANCE){ const k=u/GAIT_STANCE; return {f:1-2*k, lift:0}; }
+  const k=(u-GAIT_STANCE)/(1-GAIT_STANCE), e=k*k*(3-2*k);
+  return {f:-1+2*e, lift:Math.sin(Math.PI*k)};
+}
+const IDLE_PHASE={f:0,lift:0};
 function drawPlayer(ctx,x,y){
   const dir=P.dir||'down';
   const moving=!!P.moving;
   const wt=P.walk;
   const s=46/230;
-  /* 步态：两条腿一前一后，前摆那条用纵向压缩把脚抬起来，脚不会拖地也不会扯出空隙 */
-  const ph=moving?Math.sin(wt):0;
-  const swingAmp=moving?0.42:0;
+  /* 步态：一条腿支撑踩地往后推、另一条腿抬脚快速迈回（右腿相位差半拍）。
+     幅度只有原来的一半，靠"前后踩步 + 抬脚"走路，不再绕髋一开一合 */
+  const gaitL=moving?legPhase(wt):IDLE_PHASE;
+  const gaitR=moving?legPhase(wt+Math.PI):IDLE_PHASE;
   const idleSway=moving?0:Math.sin(G.time*1.3)*0.012;
-  const bobT=moving?(0.5+0.5*Math.sin(wt*2))*3.2:Math.sin(G.time*1.9)*0.7;   /* 上身随步频下沉（正值=向下），始终不扯开腰胯 */
+  const bobT=moving?1.6*(1+Math.cos(wt*2)):Math.sin(G.time*1.9)*0.7;   /* 双脚着地点沉得最深、单腿支撑时抬起来，始终不扯开腰胯 */
   const sway=moving?Math.sin(wt)*1.6:Math.sin(G.time*1.3)*0.45;   /* 左右重心摆动 */
   /* 头部转向：P.lookX 是弹簧平滑后的值（-1 左 → +1 右），P.lookY 是俯仰（-1 上 → +1 下） */
   const lookX=clampNum(P.lookX,-1.25,1.25), lookY=clampNum(P.lookY,-1,1);
@@ -589,14 +601,19 @@ function drawPlayer(ctx,x,y){
   ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,3,15,4.4,0,0,7); ctx.fill();
   if(playerReady){
     ctx.scale(s,s); ctx.translate(-65.5,-215); ctx.rotate(rock);
-    const ldL=ph*swingAmp+idleSway, ldR=-ph*swingAmp-idleSway;
+    const LEAN=0.15, LIFT=0.15, DEPTH=0.05, TUCK=4.2;
+    /* 前迈的脚往画面下方踩（离镜头更近、略微放大），后蹬的脚明显收上去——这样才看得出"迈步" */
+    const stepOf=f=>f>0?f*7:f*14;
+    const ldL=gaitL.f*LEAN+idleSway, ldR=-gaitR.f*LEAN-idleSway;
     /* 摆腿会让脚沿着圆弧往上跑，按"髋到脚底"的长度把这段抬高补回去，脚才踩得住地面 */
     const LEG_LEN=64.5;
     const dropL=LEG_LEN*(1-Math.cos(ldL))*0.85, dropR=LEG_LEN*(1-Math.cos(ldR))*0.85;
-    const liftL=moving?Math.max(0,ph)*0.11:0, liftR=moving?Math.max(0,-ph)*0.11:0;
-    const slideL=moving?ph*2.6:0, slideR=moving?-ph*2.6:0;
-    ctx.save(); ctx.translate(33+slideL,158+dropL); ctx.rotate(ldL); ctx.scale(1,1-liftL); ctx.drawImage(PIMG.legl,-33,-6); ctx.restore();
-    ctx.save(); ctx.translate(95+slideR,158+dropR); ctx.rotate(ldR); ctx.scale(1,1-liftR); ctx.drawImage(PIMG.legr,-29,-6); ctx.restore();
+    const stepL=stepOf(gaitL.f), stepR=stepOf(gaitR.f);
+    const liftL=gaitL.lift*LIFT, liftR=gaitR.lift*LIFT;
+    /* 抬脚时脚往身体中线收一点，膝盖就像在往上折，而不是整条腿往外甩 */
+    const tuckL=gaitL.lift*TUCK, tuckR=-gaitR.lift*TUCK;
+    ctx.save(); ctx.translate(33+tuckL,158+dropL+stepL); ctx.rotate(ldL); ctx.scale(1+DEPTH*gaitL.f,1-liftL); ctx.drawImage(PIMG.legl,-33,-6); ctx.restore();
+    ctx.save(); ctx.translate(95+tuckR,158+dropR+stepR); ctx.rotate(ldR); ctx.scale(1+DEPTH*gaitR.f,1-liftR); ctx.drawImage(PIMG.legr,-29,-6); ctx.restore();
     ctx.drawImage(PIMG.torso,sway*0.55,112+bobT);
     if(P.swing>0){
       const cx2=65+sway*0.55+Math.cos(spin)*52/0.2, cy2=128+bobT+Math.sin(spin)*52/0.2;
@@ -1030,6 +1047,87 @@ function drawDecor(ctx){
   }
 }
 
+/* ---- 机关：地刺铁板 / 地面火口（周期性弹出，踩到会掉血，也会扎到怪 ---- */
+const SPIKE_CYC=3.2, SPIKE_WARN=0.6, SPIKE_UP=1.2;
+function spikePhase(t){
+  const p=t%SPIKE_CYC, idle=SPIKE_CYC-SPIKE_WARN-SPIKE_UP;
+  if(p<idle) return {up:0,warn:0};
+  if(p<idle+SPIKE_WARN) return {up:0,warn:1};
+  return {up:1,warn:0};
+}
+const VENT_CYC=2.6, VENT_WARN=0.55, VENT_FIRE=0.9;
+function ventPhase(t){
+  const p=t%VENT_CYC, idle=VENT_CYC-VENT_WARN-VENT_FIRE;
+  if(p<idle) return {fire:0,warn:0};
+  if(p<idle+VENT_WARN) return {fire:0,warn:1};
+  return {fire:1,warn:0};
+}
+function drawSpikeTrap(ctx,x,y,tr){
+  ctx.save(); ctx.translate(x,y);
+  const up=tr.up||0, warn=tr.warn||0, t=G.time;
+  /* 铁板平时就压在地面上，孔位看得见，玩家能提前绕开 */
+  ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(0,3.5,12,5,0,0,7); ctx.fill();
+  ctx.fillStyle='#383129'; rr(ctx,-12,-7,24,14,3); ctx.fill();
+  ctx.fillStyle='#524839'; rr(ctx,-11,-6.4,22,12.6,2.4); ctx.fill();
+  ctx.strokeStyle='#6b5f4c'; ctx.lineWidth=1;
+  rr(ctx,-11,-6.4,22,12.6,2.4); ctx.stroke();
+  const holes=[];
+  for(let i=0;i<3;i++)for(let j=0;j<2;j++) holes.push([-6.5+i*6.5,-2.8+j*5.2]);
+  ctx.fillStyle='#231e18';
+  for(const h of holes){ ctx.beginPath(); ctx.ellipse(h[0],h[1],2.6,1.5,0,0,7); ctx.fill(); }
+  if(warn>0){
+    const gl=0.4+Math.sin(t*26)*0.32;
+    ctx.fillStyle='rgba(255,74,40,'+gl.toFixed(2)+')';
+    for(const h of holes){ ctx.beginPath(); ctx.ellipse(h[0],h[1],2.9,1.8,0,0,7); ctx.fill(); }
+  }
+  const hgt=up?9.6:(warn>0?1.1+Math.sin(t*34)*1.0:0);
+  if(hgt>0.4){
+    for(const h of holes){
+      const jit=up?0:Math.sin(t*40+h[0])*0.5;
+      ctx.fillStyle='#98a1aa';
+      ctx.beginPath(); ctx.moveTo(h[0]-2.4,h[1]); ctx.lineTo(h[0]+jit,h[1]-hgt); ctx.lineTo(h[0]+2.4,h[1]); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(240,248,255,0.6)';
+      ctx.beginPath(); ctx.moveTo(h[0]-1.0,h[1]); ctx.lineTo(h[0]+jit,h[1]-hgt*0.92); ctx.lineTo(h[0]+0.1,h[1]); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawFlameVent(ctx,x,y,tr){
+  ctx.save(); ctx.translate(x,y);
+  const fire=tr.fire||0, warn=tr.warn||0, t=G.time;
+  ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(0,3.5,12,5,0,0,7); ctx.fill();
+  ctx.fillStyle='#302a23'; rr(ctx,-11,-7,22,14,3); ctx.fill();
+  const heat=warn?(0.45+Math.sin(t*22)*0.35):(0.16+Math.sin(t*3.2)*0.06);
+  ctx.fillStyle='rgba(255,'+(warn?96:58)+',28,'+heat.toFixed(2)+')';
+  rr(ctx,-9.4,-5.2,18.8,10.4,2); ctx.fill();
+  ctx.fillStyle='#16130f';
+  for(let i=0;i<4;i++) ctx.fillRect(-8+i*4.8,-5.6,2.7,11.2);
+  ctx.restore();
+  /* 火舌画在铁栅之后，从栅格往上窜 */
+  if(fire||warn){
+    ctx.save(); ctx.translate(x,y);
+    const h=(fire?30:9)+Math.sin(t*18)*3.2;
+    const w=fire?9:4.6;
+    ctx.fillStyle='rgba(255,110,36,0.86)';
+    ctx.beginPath(); ctx.moveTo(-w,0); ctx.quadraticCurveTo(-w*0.55,-h*0.72,0,-h);
+    ctx.quadraticCurveTo(w*0.55,-h*0.72,w,0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,196,110,0.92)';
+    ctx.beginPath(); ctx.moveTo(-w*0.58,0); ctx.quadraticCurveTo(-w*0.3,-h*0.6,0,-h*0.82);
+    ctx.quadraticCurveTo(w*0.3,-h*0.6,w*0.58,0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,250,225,0.95)';
+    ctx.beginPath(); ctx.moveTo(-w*0.28,0); ctx.quadraticCurveTo(-w*0.14,-h*0.42,0,-h*0.6);
+    ctx.quadraticCurveTo(w*0.14,-h*0.42,w*0.28,0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawTraps(ctx){
+  for(const tr of G.traps){
+    if(!G.explored.has(Math.floor(tr.x)+','+Math.floor(tr.y))) continue;
+    if(tr.kind==='spike') drawSpikeTrap(ctx,tr.x*TILE,tr.y*TILE,tr);
+    else drawFlameVent(ctx,tr.x*TILE,tr.y*TILE,tr);
+  }
+}
+
 /* ---- 怪物尸体（保留到本层结束） ---- */
 function drawCorpse(ctx,c){
   const cfg={
@@ -1159,10 +1257,40 @@ function addWallTorches(){
     }
   }
 }
+/* 机关摆放：每层 2~4 块地刺 + 1~3 个火口，避开出生点/楼梯/商店/箱子/篝火/地上的拾取物 */
+function addTraps(start){
+  const free=(x,y)=>{
+    const tx=Math.floor(x), ty=Math.floor(y);
+    if(tx<1||ty<1||tx>=MAP_W-1||ty>=MAP_H-1) return false;
+    if(G.map[ty][tx]!==1) return false;
+    if(dist(x,y,P.x,P.y)<2.2) return false;
+    if(G.stairs&&dist(x,y,G.stairs.x,G.stairs.y)<2.4) return false;
+    if(G.shop&&dist(x,y,G.shop.x,G.shop.y)<2.4) return false;
+    for(const c of G.chests) if(dist(x,y,c.x,c.y)<1.6) return false;
+    for(const it of G.items) if(dist(x,y,it.x,it.y)<1.4) return false;
+    for(const d of G.decor) if(d.kind==='fire'&&dist(x,y,d.x,d.y)<2.0) return false;
+    for(const t of G.traps) if(dist(x,y,t.x,t.y)<2.2) return false;
+    return true;
+  };
+  const pool=G.rooms.filter(r=>r!==start);
+  if(!pool.length) return;
+  const nSpike=RI(2,4), nVent=RI(1,3);
+  for(let i=0;i<nSpike+nVent;i++){
+    const kind=i<nSpike?'spike':'vent';
+    for(let k=0;k<30;k++){
+      const r=pick(pool);
+      const x=r.x+1.3+Math.random()*Math.max(0.5,r.w-2.6);
+      const y=r.y+1.3+Math.random()*Math.max(0.5,r.h-2.6);
+      if(!free(x,y)) continue;
+      G.traps.push({kind,x,y,t:R(0,kind==='spike'?SPIKE_CYC:VENT_CYC),up:0,warn:0,fire:0,cd:0});
+      break;
+    }
+  }
+}
 function genFloor(firstRun){
   G.map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
   G.rooms=[]; G.ents=[]; G.shots=[]; G.items=[]; G.chests=[]; G.shop=null; G.torches=[];
-  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[]; G.corpses=[]; G.decor=[];
+  G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[]; G.corpses=[]; G.decor=[]; G.traps=[];
   if(G.floor===FLOORS){ genBossFloor(); return; }
   const gcols=4, grows=3, cw=Math.floor(MAP_W/gcols), ch=Math.floor(MAP_H/grows);
   for(let gy=0;gy<grows;gy++)for(let gx=0;gx<gcols;gx++){
@@ -1225,6 +1353,8 @@ function genFloor(firstRun){
     const y=r.y+0.9+Math.random()*Math.max(0.4,r.h-2.0);
     G.decor.push({kind:'skeleton',variant:chance(0.45)?1:0,x,y});
   }
+  /* 地刺 / 火口：铺在各房间里，逼玩家绕路 */
+  addTraps(start);
   /* 出怪：按房间轮转分散落点，翻倍后不再堆在同一个点上 */
   const list=FLOOR_ENEMIES[Math.min(G.floor-1,3)];
   let ei=0;
@@ -1254,6 +1384,15 @@ function genBossFloor(firstRun){
     x:3+Math.random()*(MAP_W-6),y:3+Math.random()*(MAP_H-7)});
   for(let i=0;i<4;i++) G.decor.push({kind:'skeleton',variant:i%2,
     x:4+Math.random()*(MAP_W-8),y:5+Math.random()*(MAP_H-9)});
+  /* 熊王殿也铺几块地刺，别压住公主笼子和决斗区中心 */
+  for(let i=0;i<RI(3,5);i++){
+    const x=4+Math.random()*(MAP_W-8), y=5+Math.random()*(MAP_H-12);
+    const px=MAP_W/2+0.5, py=Math.floor(MAP_H/2)+1;
+    if(dist(x,y,px,py)<4) continue;
+    if(dist(x,y,G.cage.x,G.cage.y)<5) continue;
+    if(dist(x,y,MAP_W/2+0.5,MAP_H-5)<3.5) continue;
+    G.traps.push({kind:'spike',x,y,t:R(0,SPIKE_CYC),up:0,warn:0,fire:0,cd:0});
+  }
   P.x=MAP_W/2+0.5; P.y=MAP_H-5;
   G.items.push({kind:'potion',pkind:'dmg',x:P.x-2.2,y:P.y-1});
   G.items.push({kind:'potion',pkind:'aspd',x:P.x+2.2,y:P.y-1});
@@ -1620,6 +1759,48 @@ function toast(msg){
 }
 
 /* ===== 更新 ===== */
+/* 机关触发：地刺扎起 / 火口喷火的瞬间判定一次，之后短暂冷却，避免同一轮连扣好几下 */
+function updateTraps(dt){
+  for(const tr of G.traps){
+    tr.t+=dt || 0;
+    tr.cd=Math.max(0,(tr.cd||0)-dt);
+    if(tr.kind==='spike'){
+      const ph=spikePhase(tr.t); tr.up=ph.up; tr.warn=ph.warn;
+      if(!ph.up||tr.cd>0) continue;
+      const dmg=8+Math.round((G.floor-1)*2);
+      let hit=false;
+      if(P.alive&&dist(P.x,P.y,tr.x,tr.y)<0.5){ hitPlayer(dmg); hit=true; }
+      for(const e of G.ents){
+        if(e.dead||e.kind==='boss') continue;
+        if(dist(e.x,e.y,tr.x,tr.y)<0.62){
+          const ed=dmg*2.2;
+          e.hp-=ed; e.flash=0.14; e.stun=Math.max(e.stun||0,0.22);
+          addDmgNum(e.x,e.y-0.35,ed,false);
+          hit=true;
+          if(e.hp<=0) killEnemy(e);
+        }
+      }
+      if(hit){ tr.cd=0.55; spawnBits(tr.x,tr.y,4,['#c9d2da','#8b939c','#ff6a48']); }
+    }else{
+      const ph=ventPhase(tr.t); tr.fire=ph.fire; tr.warn=ph.warn;
+      if(!ph.fire||tr.cd>0) continue;
+      const dmg=11+Math.round((G.floor-1)*2);
+      let hit=false;
+      if(P.alive&&dist(P.x,P.y,tr.x,tr.y)<0.55){ hitPlayer(dmg); hit=true; }
+      for(const e of G.ents){
+        if(e.dead||e.kind==='boss') continue;
+        if(dist(e.x,e.y,tr.x,tr.y)<0.7){
+          const ed=dmg*1.7;
+          e.hp-=ed; e.flash=0.14;
+          addDmgNum(e.x,e.y-0.35,ed,false);
+          hit=true;
+          if(e.hp<=0) killEnemy(e);
+        }
+      }
+      if(hit){ tr.cd=0.5; spawnBits(tr.x,tr.y,5,['#ffd27a','#ff7a30','#ffa040']); }
+    }
+  }
+}
 function update(dt){
   if(G.paused) return;
   if(!P.alive){
@@ -1634,6 +1815,7 @@ function update(dt){
   updatePlayer(dt);
   for(const e of G.ents) updateEnemy(e,dt);
   G.ents=G.ents.filter(e=>!e.dead);
+  updateTraps(dt);
   updateShots(dt);
   for(let i=G.items.length-1;i>=0;i--){
     const it=G.items[i];
@@ -1674,7 +1856,7 @@ function updatePlayer(dt){
     else if(Math.abs(my)>0.01){ P.dir=my<0?'up':'down'; }
     else if(Math.abs(mx)>0.01){ P.face=mx>0?1:-1; P.dir=P.face>0?'right':'left'; }
     moveE(P,mx*P.spd*dt,my*P.spd*dt);
-    P.walk+=dt*9;
+    P.walk+=dt*11;
   }
   if((keys['j']||keys[' ']||P.atkBtn)&&P.atkCd<=0) attack();
   const rad=5.5;
@@ -1737,6 +1919,7 @@ function render(){
   drawTiles();
   for(const b of G.blood) drawBlood(ctx,b);
   drawDecor(ctx);
+  drawTraps(ctx);
   drawCorpses(ctx);
   for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time,t.o||'up');
   if(G.stairs) drawStairs(ctx,G.stairs.x*TILE,G.stairs.y*TILE,G.stairs.active);
@@ -1913,6 +2096,12 @@ function drawLighting(){
       for(const d of G.decor) if(d.kind==='fire'){
         const tx=d.x*TILE-G.cam.x, ty=d.y*TILE-G.cam.y;
         if(tx>-220&&tx<PW+220&&ty>-220&&ty<PH+220) lp(tx,ty,4.6*TILE,0.92);
+      }
+      /* 火口喷火时自带一团亮光，暗处也能看见机关在喷 */
+      for(const tr of G.traps){
+        if(tr.kind!=='vent'||!tr.fire) continue;
+        const tx=tr.x*TILE-G.cam.x, ty=tr.y*TILE-G.cam.y;
+        if(tx>-200&&tx<PW+200&&ty>-200&&ty<PH+200) lp(tx,ty-4,3.2*TILE,0.9);
       }
       ctx.drawImage(G.lightCv,0,0);
       return;
