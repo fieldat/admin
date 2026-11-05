@@ -511,11 +511,12 @@ const EDEF={
   bat:{name:'吸血蝙蝠', hp:26, dmg:8, spd:3.0, r:0.30, coin:2, wood:1},
   boss:{name:'暗黑熊王', hp:950, dmg:30, spd:1.45,r:0.80, coin:30,wood:20}
 };
+/* 每层出怪表（已整体 ×2：原来一层 12 只太空旷） */
 const FLOOR_ENEMIES=[
-  [['bee',3],['boar',3],['mush',2],['bear',1],['spider',2],['bat',1]],
-  [['bee',4],['boar',3],['mush',2],['bear',2],['spider',2],['bat',2]],
-  [['bee',5],['boar',4],['mush',3],['bear',3],['spider',3],['bat',2]],
-  [['bee',6],['boar',4],['mush',3],['bear',4],['spider',3],['bat',3]]
+  [['bee',6],['boar',6],['mush',4],['bear',2],['spider',4],['bat',2]],
+  [['bee',8],['boar',6],['mush',4],['bear',4],['spider',4],['bat',4]],
+  [['bee',10],['boar',8],['mush',6],['bear',6],['spider',6],['bat',4]],
+  [['bee',12],['boar',8],['mush',6],['bear',8],['spider',6],['bat',6]]
 ];
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 
@@ -829,13 +830,40 @@ function drawChest(ctx,x,y,opened,t){
   }
   ctx.restore();
 }
-function drawTorch(ctx,x,y,t){
+/* 壁挂火把：锚点落在墙脚线上，铁托架贴在墙面上、火苗向上舔着墙砖，
+   不再像以前那样在房间地板上立一根木棍（o: 'up' 墙在上 / 'left' 墙在左 / 'right' 墙在右） */
+function drawTorch(ctx,x,y,t,o){
   ctx.save(); ctx.translate(x,y);
-  ctx.fillStyle='#6e5436'; ctx.fillRect(-1.4,0,2.8,10);
-  ctx.fillStyle='#5a4126'; ctx.fillRect(-2.4,-1,4.8,3);
+  const side=(o==='left'?1:(o==='right'?-1:0));        /* 支臂伸出方向：+1 朝右伸进房间 */
+  const bx=side*7, by=side?-11:-12;                    /* 火盆位置：侧墙在墙面腰部，上墙贴墙吊着 */
   const f=1+Math.sin(t*9)*0.15+Math.sin(t*23)*0.1;
-  ctx.fillStyle='#ffd27a'; ctx.beginPath(); ctx.ellipse(0,-4,2.6*f,4.4*f,0,0,7); ctx.fill();
-  ctx.fillStyle='#ff8a4a'; ctx.beginPath(); ctx.ellipse(0,-3,1.6*f,2.8*f,0,0,7); ctx.fill();
+  /* 墙面暖光 */
+  const g=ctx.createRadialGradient(bx,by-5,1,bx,by-5,26);
+  g.addColorStop(0,'rgba(255,190,110,0.34)');
+  g.addColorStop(0.55,'rgba(255,150,60,0.12)');
+  g.addColorStop(1,'rgba(255,140,50,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(bx,by-5,26,0,7); ctx.fill();
+  /* 贴墙铁架：侧墙为横向支臂，上墙为贴墙竖杆，整根架子都落在墙砖上，地面不留底座阴影 */
+  ctx.strokeStyle='#3b342d'; ctx.lineWidth=2; ctx.lineCap='round';
+  ctx.beginPath();
+  if(side){
+    ctx.moveTo(-side*3,by-1.5); ctx.lineTo(bx-0.5,by-1.5);
+    ctx.moveTo(-side*3,by-6.5); ctx.lineTo(-side*3,by-1.5);
+  }else{
+    ctx.moveTo(-5.5,by+3); ctx.lineTo(5.5,by+3);
+    ctx.moveTo(-3.6,by+3); ctx.lineTo(0,by+1);
+    ctx.moveTo(3.6,by+3); ctx.lineTo(0,by+1);
+  }
+  ctx.stroke();
+  /* 火盆 + 火焰（火苗始终朝上，重力方向不变） */
+  ctx.fillStyle='#2e2a25'; ctx.beginPath(); ctx.ellipse(bx,by,3.6,1.9,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,150,60,0.92)'; ctx.beginPath(); ctx.ellipse(bx,by-5.5,3.4*f,6.4*f,0,0,7); ctx.fill();
+  ctx.fillStyle='#ffd27a'; ctx.beginPath(); ctx.ellipse(bx,by-6,2.2*f,4.6*f,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(255,250,220,0.95)'; ctx.beginPath(); ctx.ellipse(bx,by-6.5,1.1*f,2.4*f,0,0,7); ctx.fill();
+  /* 火星 */
+  const p=(t*0.7)%1;
+  ctx.fillStyle='rgba(255,200,120,'+(1-p).toFixed(2)+')';
+  ctx.fillRect(bx+Math.sin(t*3.1)*3.4,by-12-p*12,1.6,1.6);
   ctx.restore();
 }
 function drawHoney(ctx,x,y,t){
@@ -1114,7 +1142,24 @@ function spawnEnemy(kind,x,y){
   return e;
 }
 
-function genFloor(){
+/* 壁挂火把布点：只贴在真正有墙的边上（上墙 / 左右墙），锚点落在墙脚线上 */
+function addWallTorches(){
+  for(const r of G.rooms){
+    if(chance(0.8)){
+      const tx=RI(r.x+1,Math.max(r.x+1,r.x+r.w-2));
+      if(wallAt(tx,r.y-1)) G.torches.push({x:tx+0.5,y:r.y+0.02,o:'up'});
+    }
+    if(chance(0.35)){
+      const ty=RI(r.y+1,Math.max(r.y+1,r.y+r.h-2));
+      if(wallAt(r.x-1,ty)) G.torches.push({x:r.x+0.02,y:ty+0.5,o:'left'});
+    }
+    if(chance(0.35)){
+      const ty=RI(r.y+1,Math.max(r.y+1,r.y+r.h-2));
+      if(wallAt(r.x+r.w,ty)) G.torches.push({x:r.x+r.w-0.02,y:ty+0.5,o:'right'});
+    }
+  }
+}
+function genFloor(firstRun){
   G.map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
   G.rooms=[]; G.ents=[]; G.shots=[]; G.items=[]; G.chests=[]; G.shop=null; G.torches=[];
   G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[]; G.corpses=[]; G.decor=[];
@@ -1140,26 +1185,28 @@ function genFloor(){
   const mid=G.rooms[Math.floor(G.rooms.length/2)];
   if(mid!==start&&mid!==far){ G.shop={x:mid.cx+0.5,y:mid.cy+0.5,items:null}; }
   const others=G.rooms.filter(r=>r!==start); shuffle(others);
-  const chestN=RI(1,2);
-  for(let i=0;i<chestN&&i<others.length;i++) G.chests.push({x:others[i].cx+0.5,y:others[i].cy+0.5,opened:false});
-  const honeys=RI(1,3);
+  const chestRooms=others.filter(r=>r!==mid);
+  const chestN=Math.min(chestRooms.length,RI(3,4));       /* 奖励箱子：每层 3~4 个（原来只有 1~2 个） */
+  for(let i=0;i<chestN;i++) G.chests.push({x:chestRooms[i].cx+0.5,y:chestRooms[i].cy+0.5,opened:false});
+  const honeys=RI(2,4);
   for(let i=0;i<honeys;i++){ const r=pick(others); G.items.push({kind:'honey',x:r.cx+0.3+Math.random()*0.4,y:r.cy+0.3+Math.random()*0.4}); }
-  /* 地面药剂：攻速 / 攻击距离 / 伤害 */
-  const potionN=RI(3,5);
+  /* 地面药剂：攻速 / 攻击距离 / 伤害（数量翻倍，捡起来会带进下一层） */
+  const potionN=RI(6,8);
   for(let i=0;i<potionN;i++){
     const r=pick(others);
     G.items.push({kind:'potion',pkind:pick(['dmg','aspd','range']),
       x:r.cx+0.2+Math.random()*0.6,y:r.cy+0.2+Math.random()*0.6});
   }
-  for(const r of G.rooms){
-    if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+0.5});
-    if(chance(0.5)) G.torches.push({x:r.x+1.5,y:r.y+r.h-0.5});
-  }
-  /* 地图装饰：篝火、蜘蛛网、骨头、木桶、蘑菇丛 */
+  /* 火把一律壁挂：沿房间上墙 / 左右墙找贴墙锚点 */
+  addWallTorches();
+  /* 地面篝火：每层 3~5 处，摆在房间四角，别跟箱子抢中心位置 */
   const fireRooms=shuffle(G.rooms.filter(r=>r!==start&&r!==far&&r!==mid).slice());
-  for(let i=0;i<Math.min(2,fireRooms.length);i++){
+  const fireN=Math.min(fireRooms.length,RI(3,5));
+  for(let i=0;i<fireN;i++){
     const r=fireRooms[i];
-    G.decor.push({kind:'fire',x:r.cx+0.5,y:r.cy+0.5,t:R(0,6)});
+    G.decor.push({kind:'fire',
+      x:chance(0.5)?r.x+1.35:r.x+r.w-1.35,
+      y:chance(0.5)?r.y+1.35:r.y+r.h-1.35,t:R(0,6)});
   }
   for(const r of G.rooms){
     const cs=[[r.x,r.y,0],[r.x+r.w-1,r.y,1],[r.x+r.w-1,r.y+r.h-1,2],[r.x,r.y+r.h-1,3]];
@@ -1178,19 +1225,27 @@ function genFloor(){
     const y=r.y+0.9+Math.random()*Math.max(0.4,r.h-2.0);
     G.decor.push({kind:'skeleton',variant:chance(0.45)?1:0,x,y});
   }
+  /* 出怪：按房间轮转分散落点，翻倍后不再堆在同一个点上 */
   const list=FLOOR_ENEMIES[Math.min(G.floor-1,3)];
-  const spots=others.slice();
+  let ei=0;
   for(const pair of list) for(let i=0;i<pair[1];i++){
-    const r=spots.length?spots.splice(RI(0,spots.length-1),1)[0]:pick(others);
-    spawnEnemy(pair[0],r.cx+0.5,r.cy+0.5);
+    const r=others[ei++%others.length];
+    spawnEnemy(pair[0],
+      r.x+1.15+Math.random()*Math.max(0.6,r.w-2.3),
+      r.y+1.15+Math.random()*Math.max(0.5,r.h-2.3));
   }
-  resetRunState();
+  if(firstRun) resetRunState(); else carryFloorState();
 }
-function genBossFloor(){
+function genBossFloor(firstRun){
   carve(2,2,MAP_W-4,MAP_H-4);
   G.cage={x:Math.floor(MAP_W/2)+0.5,y:6.5,broken:false};
   G.princess={x:G.cage.x,y:G.cage.y-1.5,face:1};
-  for(let i=2;i<MAP_W-2;i+=4){ G.torches.push({x:i+0.5,y:3.5}); G.torches.push({x:i+0.5,y:MAP_H-3.5}); }
+  /* 熊王殿的火把同样改成壁挂：上墙 + 两侧墙 */
+  for(let i=3;i<MAP_W-3;i+=4) G.torches.push({x:i+0.5,y:2,o:'up'});
+  for(const y of [7,13,19,25,31,37]){
+    G.torches.push({x:2,y:y+0.5,o:'left'});
+    G.torches.push({x:MAP_W-2-0.02,y:y+0.5,o:'right'});
+  }
   /* 熊王殿装饰：两侧篝火、四角蛛网、散落骨头 */
   for(let i=8;i<MAP_W-8;i+=12) G.decor.push({kind:'fire',x:i+0.5,y:MAP_H-6.5,t:R(0,6)});
   [[2,2,0],[MAP_W-3,2,1],[MAP_W-3,MAP_H-3,2],[2,MAP_H-3,3]].forEach(c=>
@@ -1203,24 +1258,41 @@ function genBossFloor(){
   G.items.push({kind:'potion',pkind:'dmg',x:P.x-2.2,y:P.y-1});
   G.items.push({kind:'potion',pkind:'aspd',x:P.x+2.2,y:P.y-1});
   spawnEnemy('boss',MAP_W/2+0.5,Math.floor(MAP_H/2)+1);
-  for(let i=0;i<7;i++) spawnEnemy('bee',MAP_W/2+R(-9,9),Math.floor(MAP_H/2)+R(-4,4));
-  for(let i=0;i<3;i++) spawnEnemy('boar',MAP_W/2+R(-10,10),Math.floor(MAP_H/2)+R(-4,4));
+  for(let i=0;i<14;i++) spawnEnemy('bee',MAP_W/2+R(-9,9),Math.floor(MAP_H/2)+R(-4,4));
+  for(let i=0;i<6;i++) spawnEnemy('boar',MAP_W/2+R(-10,10),Math.floor(MAP_H/2)+R(-4,4));
   spawnEnemy('spider',MAP_W/2-6,Math.floor(MAP_H/2)+3);
   spawnEnemy('spider',MAP_W/2+7,Math.floor(MAP_H/2)-2);
+  spawnEnemy('spider',MAP_W/2-4,Math.floor(MAP_H/2)-5);
+  spawnEnemy('spider',MAP_W/2+5,Math.floor(MAP_H/2)+6);
   spawnEnemy('bat',MAP_W/2+6,Math.floor(MAP_H/2)+2);
   spawnEnemy('bat',MAP_W/2-7,Math.floor(MAP_H/2)-3);
+  spawnEnemy('bat',MAP_W/2+3,Math.floor(MAP_H/2)-6);
+  spawnEnemy('bat',MAP_W/2-3,Math.floor(MAP_H/2)+7);
   spawnEnemy('mush',MAP_W/2-2,Math.floor(MAP_H/2)+5);
-  resetRunState();
+  spawnEnemy('mush',MAP_W/2+4,Math.floor(MAP_H/2)-4);
+  if(firstRun) resetRunState(); else carryFloorState();
 }
+/* 只重置“这一层”的瞬时状态：朝向、挥砍、无敌帧、粒子。
+   强化卷轴（G.scrolls）、金币、蜂蜜都不动，原样带进下一层 */
+function resetTransient(){
+  P.hp=P.maxHp; P.atkCd=0; P.swing=0; P.invuln=0; P.flash=0; P.alive=true; P.walk=0;
+  P.dir='down'; P.face=1; P.moving=false;
+  P.lookX=0; P.lookXV=0; P.lookY=0; P.lookYV=0; P.faceT=0; P.faceTV=0;
+  parts.length=0; dnums.length=0;
+}
+/* 整局开始（第 1 层）才清空成长 */
 function resetRunState(){
   G.scrolls={dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0};
   computeStats();
-  P.hp=P.maxHp; P.coins=0; P.atkCd=0; P.swing=0; P.invuln=0; P.flash=0; P.alive=true; P.walk=0;
-  P.dir='down'; P.face=1; P.moving=false;
-  P.lookX=0; P.lookXV=0; P.lookY=0; P.lookYV=0; P.faceT=0; P.faceTV=0;
-  P.honey=1+meta.ups.honey;
+  P.coins=0; P.honey=1+meta.ups.honey;
   G.run={kills:0,coins:0,wood:0,start:performance.now(),scrolls:0,floorMax:G.floor};
-  parts.length=0; dnums.length=0;
+  resetTransient();
+}
+/* 进入下一层：上一层的蜂蜜、金币、卷轴/药剂属性全部继承 */
+function carryFloorState(){
+  computeStats();
+  G.run.floorMax=Math.max(G.run.floorMax||G.floor,G.floor);
+  resetTransient();
 }
 function computeStats(){
   P.maxHp=100+meta.ups.hp*15+G.scrolls.hp*20;
@@ -1495,13 +1567,14 @@ function tryInteract(){
 function descend(){
   if(G.floor>=FLOORS) return;
   G.floor++;
-  genFloor();
+  genFloor(false);
   toast('第 '+G.floor+' 层 · '+FLOOR_NAMES[G.floor-1]);
+  toast('蜂蜜 '+P.honey+' 罐 · 金币 '+P.coins+' · 强化全部继承');
   if(G.floor===FLOORS) toast('熊王殿到了…暗黑熊王在等着你！');
 }
 function enterRun(){
   G.floor=1;
-  genFloor();
+  genFloor(true);
   toast('第 1 层 · 泥土层');
   toast('杀光本层敌人，开启楼梯！');
 }
@@ -1665,7 +1738,7 @@ function render(){
   for(const b of G.blood) drawBlood(ctx,b);
   drawDecor(ctx);
   drawCorpses(ctx);
-  for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time);
+  for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time,t.o||'up');
   if(G.stairs) drawStairs(ctx,G.stairs.x*TILE,G.stairs.y*TILE,G.stairs.active);
   for(const c of G.chests) drawChest(ctx,c.x*TILE,c.y*TILE,c.opened,G.time);
   if(G.shop) drawOwl(ctx,G.shop.x*TILE,G.shop.y*TILE,G.time);
@@ -1716,21 +1789,26 @@ function render(){
   ctx.drawImage(PIXC,0,0,W,H);
   /* 主画布是屏幕像素，世界坐标必须先减相机再乘 PS，否则特效会跑到左上角 */
   if(P.swing>0&&P.alive){
-    const t=1-P.swing/P.swingDur;                 /* 0→1 旋转进度 */
+    const t=1-P.swing/P.swingDur;                 /* 0→1 旋转进度，和 drawPlayer 里的 spin 同源 */
     const start=0.08, end=start+t*Math.PI*2*1.02;
-    const sx=(P.x*TILE-G.cam.x)*PS, sy=(P.y*TILE-G.cam.y)*PS, sr=P.atkRange*TILE*PS*0.8;
+    const SPR=46/230;                             /* 部件坐标 → 世界像素 */
+    const px=(P.x*TILE-G.cam.x)*PS, py=(P.y*TILE-G.cam.y)*PS;
+    /* 光圈要套在电锯真正划过的圆上：圆心是电锯轨道中心（部件 65,128），比脚底高 17.4 世界像素 */
+    const sx=px+(65-65.5)*SPR*PS, sy=py+(128-215)*SPR*PS;
+    /* 轨道半径 260 部件单位，刀尖最远 301 → 取刀身中段 280，约 56 世界像素，正好压在刀刃上 */
+    const sr=280*SPR*PS;
     ctx.save();
     ctx.lineCap='round';
     /* 分层弧线做拖尾：越长越淡，越靠近刀尖越亮 */
     ctx.globalAlpha=0.12; ctx.strokeStyle='#ffe9a8'; ctx.lineWidth=9*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,start,end); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx,sy,sr,start,end); ctx.stroke();
     ctx.globalAlpha=0.30; ctx.lineWidth=7*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-2.0),end); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx,sy,sr,Math.max(start,end-2.0),end); ctx.stroke();
     ctx.globalAlpha=0.55; ctx.lineWidth=4.5*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-0.9),end); ctx.stroke();
+    ctx.beginPath(); ctx.arc(sx,sy,sr,Math.max(start,end-0.9),end); ctx.stroke();
     ctx.globalAlpha=1; ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=2.2*PS;
-    ctx.beginPath(); ctx.arc(sx,sy,sr*0.94,Math.max(start,end-0.32),end); ctx.stroke();
-    const ex=sx+Math.cos(end)*sr*0.94, ey=sy+Math.sin(end)*sr*0.94;
+    ctx.beginPath(); ctx.arc(sx,sy,sr,Math.max(start,end-0.32),end); ctx.stroke();
+    const ex=sx+Math.cos(end)*sr, ey=sy+Math.sin(end)*sr;
     ctx.fillStyle='rgba(255,180,90,0.6)'; ctx.beginPath(); ctx.arc(ex,ey,5.5*PS,0,7); ctx.fill();
     ctx.fillStyle='rgba(255,250,220,0.95)'; ctx.beginPath(); ctx.arc(ex,ey,2.3*PS,0,7); ctx.fill();
     ctx.restore();
