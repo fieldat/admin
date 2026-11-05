@@ -585,14 +585,17 @@ function drawPlayer(ctx,x,y){
   if(dir==='left') ctx.scale(-1,1);
   if(P.flash>0) ctx.globalAlpha=0.45;
   if(dir==='up') ctx.globalAlpha*=0.8;
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,12,15,4.4,0,0,7); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,3,15,4.4,0,0,7); ctx.fill();
   if(playerReady){
     ctx.scale(s,s); ctx.translate(-65.5,-215); ctx.rotate(rock);
     const ldL=ph*swingAmp+idleSway, ldR=-ph*swingAmp-idleSway;
+    /* 摆腿会让脚沿着圆弧往上跑，按"髋到脚底"的长度把这段抬高补回去，脚才踩得住地面 */
+    const LEG_LEN=64.5;
+    const dropL=LEG_LEN*(1-Math.cos(ldL))*0.85, dropR=LEG_LEN*(1-Math.cos(ldR))*0.85;
     const liftL=moving?Math.max(0,ph)*0.11:0, liftR=moving?Math.max(0,-ph)*0.11:0;
     const slideL=moving?ph*2.6:0, slideR=moving?-ph*2.6:0;
-    ctx.save(); ctx.translate(33+slideL,158); ctx.rotate(ldL); ctx.scale(1,1-liftL); ctx.drawImage(PIMG.legl,-33,-6); ctx.restore();
-    ctx.save(); ctx.translate(95+slideR,158); ctx.rotate(ldR); ctx.scale(1,1-liftR); ctx.drawImage(PIMG.legr,-29,-6); ctx.restore();
+    ctx.save(); ctx.translate(33+slideL,158+dropL); ctx.rotate(ldL); ctx.scale(1,1-liftL); ctx.drawImage(PIMG.legl,-33,-6); ctx.restore();
+    ctx.save(); ctx.translate(95+slideR,158+dropR); ctx.rotate(ldR); ctx.scale(1,1-liftR); ctx.drawImage(PIMG.legr,-29,-6); ctx.restore();
     ctx.drawImage(PIMG.torso,sway*0.55,112+bobT);
     if(P.swing>0){
       const cx2=65+sway*0.55+Math.cos(spin)*52/0.2, cy2=128+bobT+Math.sin(spin)*52/0.2;
