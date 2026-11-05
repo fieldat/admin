@@ -547,10 +547,10 @@ const FLOOR_ENEMIES=[
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 /* ===== 守层 boss：每层楼梯前蹲着一只精英怪，第 5 层由熊王本尊坐镇 ===== */
 const GUARDS=[
-  {name:'石牙野猪王',   base:'boar',  hpMul:3.3, dmgMul:1.35, sc:1.86, col:'#e0a45a', tag:'冲锋'},
-  {name:'剧毒蘑菇王',   base:'mush',  hpMul:2.8, dmgMul:1.45, sc:1.90, col:'#b07ae0', tag:'毒孢子'},
-  {name:'洞穴蜘蛛女王', base:'spider',hpMul:3.4, dmgMul:1.40, sc:1.76, col:'#7fd0a8', tag:'突袭'},
-  {name:'血翼蝙蝠王',   base:'bat',   hpMul:3.2, dmgMul:1.50, sc:1.84, col:'#e07a9a', tag:'吸血'}
+  {name:'石牙野猪王',   base:'boar',  hpMul:3.3, dmgMul:1.35, sc:1.86, top:12, col:'#e0a45a', tag:'冲锋'},
+  {name:'剧毒蘑菇王',   base:'mush',  hpMul:2.8, dmgMul:1.45, sc:1.90, top:19, col:'#b07ae0', tag:'毒孢子'},
+  {name:'洞穴蜘蛛女王', base:'spider',hpMul:3.4, dmgMul:1.40, sc:1.76, top:10, col:'#7fd0a8', tag:'突袭'},
+  {name:'血翼蝙蝠王',   base:'bat',   hpMul:3.2, dmgMul:1.50, sc:1.84, top:14, col:'#e07a9a', tag:'吸血'}
 ];
 /* 可摧毁道具：木桶 / 木箱 / 暗墙（暗墙打破才能进密室） */
 const PROP_HP={barrel:30, crate:26, crack:46};
@@ -1274,9 +1274,9 @@ function drawCrack(ctx,pr){
   ctx.restore();
 }
 /* 守层 boss 的金冠 + 光环 */
-function drawCrown(ctx,px,py,sc,col){
+function drawCrown(ctx,px,py,sc,col,top){
   const bob=Math.sin(G.time*2.4)*1.6;
-  const y=py-(17*(sc||1.5)+6)+bob;
+  const y=py-((top||12)*(sc||1.5)+2)+bob;
   ctx.save(); ctx.translate(px,y);
   ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0,9,9,3,0,0,7); ctx.fill();
   ctx.fillStyle='#ffd27a';
@@ -2454,7 +2454,7 @@ function render(){
       ctx.beginPath(); ctx.ellipse(0,5,15,6,0,0,7); ctx.stroke();
       drawOne(e,0,0);
       ctx.restore();
-      drawCrown(ctx,px,py,sc,e.guard.col);
+      drawCrown(ctx,px,py,sc,e.guard.col,e.guard.top);
     }else drawOne(e,px,py);
   }
   if(P.alive) drawPlayer(ctx,P.x*TILE,P.y*TILE);
