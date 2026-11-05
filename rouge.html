@@ -534,15 +534,16 @@ const EDEF={
   mush:{name:'毒蘑菇',   hp:46,  dmg:10, spd:0,   r:0.40, coin:2, wood:2},
   bear:{name:'熊兵',     hp:130, dmg:24, spd:1.9, r:0.46, coin:4, wood:3},
   spider:{name:'洞穴蜘蛛', hp:34, dmg:9, spd:2.7, r:0.34, coin:2, wood:2},
+  mole:{name:'钻地鼠',   hp:42, dmg:11, spd:2.4, r:0.34, coin:2, wood:2},
   bat:{name:'吸血蝙蝠', hp:26, dmg:8, spd:3.0, r:0.30, coin:2, wood:1},
   boss:{name:'暗黑熊王', hp:950, dmg:30, spd:1.45,r:0.80, coin:30,wood:20}
 };
 /* 每层出怪表（已整体 ×2：原来一层 12 只太空旷） */
 const FLOOR_ENEMIES=[
-  [['bee',6],['boar',6],['mush',4],['bear',2],['spider',4],['bat',2]],
-  [['bee',8],['boar',6],['mush',4],['bear',4],['spider',4],['bat',4]],
-  [['bee',10],['boar',8],['mush',6],['bear',6],['spider',6],['bat',4]],
-  [['bee',12],['boar',8],['mush',6],['bear',8],['spider',6],['bat',6]]
+  [['bee',7],['boar',7],['mush',5],['bear',3],['spider',5],['bat',3],['mole',4]],
+  [['bee',9],['boar',8],['mush',5],['bear',5],['spider',5],['bat',5],['mole',5]],
+  [['bee',11],['boar',9],['mush',7],['bear',7],['spider',7],['bat',5],['mole',6]],
+  [['bee',13],['boar',10],['mush',7],['bear',9],['spider',7],['bat',7],['mole',6]]
 ];
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
 /* ===== 守层 boss：每层楼梯前蹲着一只精英怪，第 5 层由熊王本尊坐镇 ===== */
@@ -565,7 +566,7 @@ const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[],
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
 const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,dir:'down',moving:false,walk:0,alive:true,atkBtn:false,
-  lookX:0,lookXV:0,lookY:0,lookYV:0,faceT:0,faceTV:0};
+  lookX:0,lookXV:0,lookY:0,lookYV:0,faceT:0,faceTV:0,bodyT:0,bodyTV:0};
 const FLOOR_DIFF={};
 function floorMul(){return {hp:1+(G.floor-1)*0.35, dmg:1+(G.floor-1)*0.15};}
 
@@ -632,10 +633,17 @@ function drawPlayer(ctx,x,y){
   const rock=P.swing>0?Math.sin((1-P.swing/P.swingDur)*Math.PI)*0.1:0;
   const spin=P.swing>0?(1-P.swing/P.swingDur)*Math.PI*2:0;
   ctx.save(); ctx.translate(x,y);
-  if(dir==='left') ctx.scale(-1,1);
+  /* 影子先在地上铺好，不跟着转身一起拧 */
+  ctx.save(); ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,3,15,4.4,0,0,7); ctx.fill(); ctx.restore();
+  /* 转身：整副身子以脚为轴在原地拧过去——先侧倾收窄，翻面刚好落在侧倾最大的那一刻，再回正;
+     不再是同一张图瞬间镜像（那样只有头在动，身子是死的） */
+  const bT=clampNum(P.bodyT,0,1);
+  const bsw=Math.sin(Math.PI*bT);
+  const bFlip=(bT>0.5)?-1:1;
+  ctx.rotate(-bFlip*0.26*bsw);
+  ctx.scale(bFlip*(1-0.14*bsw),1+0.05*bsw);
   if(P.flash>0) ctx.globalAlpha=0.45;
   if(dir==='up') ctx.globalAlpha*=0.8;
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.beginPath(); ctx.ellipse(0,3,15,4.4,0,0,7); ctx.fill();
   if(playerReady){
     ctx.scale(s,s); ctx.translate(-65.5,-215); ctx.rotate(rock);
     const LEAN=0.15, LIFT=0.15, DEPTH=0.05, TUCK=4.2;
@@ -663,11 +671,10 @@ function drawPlayer(ctx,x,y){
     /* 原画的脸偏向画面左侧：左右行进时让头部横向“转过去”（+1 正面 → 0 侧对 → -1 镜像），
        镜像后脸就朝行进方向了；左走时外层已经整体镜像，这里的局部值同样适用 */
     const faceYaw=clampNum(P.faceT,0,1);
-    const flipX=Math.cos(Math.PI*faceYaw);
-    const faceW=Math.max(0.18,Math.abs(flipX))*(flipX<0?-1:1);   /* 侧对时留一点宽度，不至于细成一条线 */
+    const faceW=Math.max(0.42,Math.abs(Math.cos(Math.PI*faceYaw)));
     ctx.save();
     ctx.translate(65+hx,56+hy);
-    ctx.rotate(lookX*0.15*Math.sign(faceW)+lookY*0.02+(moving?Math.sin(wt)*0.05:Math.sin(G.time*1.7)*0.02));
+    ctx.rotate(lookX*0.15+lookY*0.02+(moving?Math.sin(wt)*0.05:Math.sin(G.time*1.7)*0.02));
     ctx.scale(faceW,1+0.05*lookY);
     ctx.drawImage(PIMG.head,-65.5,-56);
     ctx.restore();
@@ -1402,7 +1409,47 @@ function connect(a,b){
   const dirY=y<b.cy?1:-1;
   while(y!==b.cy){ carve(x-1,y,3,1); y+=dirY; }
 }
-function shuffle(a){for(let i=a.length-1;i>0;i--){const j=RI(0,i);[a[i],a[j]]=[a[j],a[i]];}return a;}
+/* 把大块实心墙区挖成能走进去的旁屋，再挖一条 L 形通道接回主地牢，
+   免得地图上留下大片“看得见进不去”的死墙 */
+function addFillerRooms(maxN){
+  const fits=(x,y,w,h)=>{
+    for(let ty=y-1;ty<=y+h;ty++)for(let tx=x-1;tx<=x+w;tx++){
+      if(tx<1||ty<1||tx>=MAP_W-1||ty>=MAP_H-1) return false;
+      if(G.map[ty][tx]!==0) return false;
+    }
+    return true;
+  };
+  let made=0;
+  for(let k=0;k<900&&made<maxN;k++){
+    const w=RI(3,8), h=RI(3,6);
+    const x=RI(2,MAP_W-2-w), y=RI(2,MAP_H-2-h);
+    if(!fits(x,y,w,h)) continue;
+    const r={x,y,w,h,cx:x+Math.floor(w/2),cy:y+Math.floor(h/2),filler:true};
+    let near=null, nd=1e9;
+    for(const o of G.rooms){
+      const dd=Math.abs(o.cx-r.cx)+Math.abs(o.cy-r.cy);
+      if(dd<nd){ nd=dd; near=o; }
+    }
+    if(!near) break;
+    /* 通道不能从密室墙上穿过去，否则密室会被提前挖穿 */
+    let breach=false;
+    for(const s of G.secret){
+      for(let xx=Math.min(r.cx,near.cx)-1;xx<=Math.max(r.cx,near.cx)+1&&!breach;xx++)
+        for(let yy=r.cy-1;yy<=r.cy+1;yy++)
+          if(xx>=s.x-1&&xx<s.x+s.w+1&&yy>=s.y-1&&yy<s.y+s.h+1){ breach=true; break; }
+      for(let yy=Math.min(r.cy,near.cy)-1;yy<=Math.max(r.cy,near.cy)+1&&!breach;yy++)
+        for(let xx=near.cx-1;xx<=near.cx+1;xx++)
+          if(xx>=s.x-1&&xx<s.x+s.w+1&&yy>=s.y-1&&yy<s.y+s.h+1){ breach=true; break; }
+    }
+    if(breach) continue;
+    carve(x,y,w,h);
+    connect(r,near);
+    G.rooms.push(r);
+    made++;
+  }
+  return made;
+}
+ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=RI(0,i);[a[i],a[j]]=[a[j],a[i]];}return a;}
 function wallAt(tx,ty){return tx<0||ty<0||tx>=MAP_W||ty>=MAP_H||G.map[ty|0][tx|0]===0;}
 function touchesWall(x,y,r){
   const x0=Math.floor(x-r),x1=Math.floor(x+r),y0=Math.floor(y-r),y1=Math.floor(y+r);
@@ -1426,6 +1473,7 @@ function spawnEnemy(kind,x,y){
   const d=EDEF[kind], fm=floorMul();
   const e={kind,x,y,hp:d.hp*fm.hp,maxHp:d.hp*fm.hp,dmg:d.dmg*fm.dmg,spd:d.spd*enemySpdMul(),r:d.r,
     t:R(0,6),state:'idle',st:0,cd:R(1,2),flash:0,face:1,dead:false,coin:d.coin,wood:d.wood};
+  if(kind==='mole'){ e.dig=true; e.digT=R(2.2,5.0); e.emerge=0; }
   G.ents.push(e);
   return e;
 }
@@ -1496,9 +1544,10 @@ function addPlates(pool){
   };
   const n=RI(2,3);
   for(let i=0;i<n;i++){
-    for(let k=0;k<60;k++){
+    for(let k=0;k<160;k++){
       const r=pick(pool);
       const d=pick(dirs);
+      if(r.w<4||r.h<4) continue;   /* 太窄的旁屋摆不下踏板，跳过 */
       /* 踏板就摆在房间靠墙的那一圈：箭头方向朝房间里面，背后的那一格才是墙 */
       let tx,ty;
       if(d[0]===0){
@@ -1512,7 +1561,7 @@ function addPlates(pool){
       if(!clear(x,y)) continue;
       if(!wallAt(tx-d[0],ty-d[1])) continue;                 /* 背后要有墙，箭才射得出来 */
       let open=true;
-      for(let s=1;s<=3;s++) if(wallAt(tx+d[0]*s,ty+d[1]*s)){ open=false; break; }
+      for(let s=1;s<=2;s++) if(wallAt(tx+d[0]*s,ty+d[1]*s)){ open=false; break; }
       if(!open) continue;
       G.traps.push({kind:'plate',mode:chance(0.62)?'arrow':'spike',x,y,dx:d[0],dy:d[1],
         press:0,cd:R(0,0.5),fire:0,warn:0,up:0});
@@ -1677,15 +1726,19 @@ function genFloor(firstRun){
     if(i%gcols<gcols-1) connect(r,G.rooms[i+1]);
     if(i+gcols<G.rooms.length) connect(r,G.rooms[i+gcols]);
   }
-  /* 墙里挖 1~2 间密室（奖励房 / 怪物房），门是一块暗墙 */
+  /* 先在厚墙里挖 1~2 间密室（奖励房 / 怪物房），门是一块暗墙 */
   addSecretRooms();
+  /* 再把剩下的大块实心墙挖成能走进去的旁屋，免得地图上留下大片死墙 */
+  addFillerRooms(RI(9,13));
   const start=G.rooms[0];
   P.x=start.cx+0.5; P.y=start.cy+0.5;
   let far=start;
   for(const r of G.rooms) if(dist(r.cx,r.cy,P.x,P.y)>dist(far.cx,far.cy,P.x,P.y)) far=r;
   G.stairs={x:far.cx+0.5,y:far.cy+0.5,active:false};
-  const mid=G.rooms[Math.floor(G.rooms.length/2)];
-  if(mid!==start&&mid!==far){ G.shop={x:mid.cx+0.5,y:mid.cy+0.5,items:null}; }
+  let mid=null;
+  const midI=Math.floor(G.rooms.length/2);
+  for(let k=0;k<G.rooms.length;k++){ const rr=G.rooms[(midI+k)%G.rooms.length]; if(rr!==start&&rr!==far){ mid=rr; break; } }
+  if(mid){ G.shop={x:mid.cx+0.5,y:mid.cy+0.5,items:null}; }
   const others=G.rooms.filter(r=>r!==start); shuffle(others);
   const chestRooms=others.filter(r=>r!==mid);
   const chestN=Math.min(chestRooms.length,RI(3,4));       /* 奖励箱子：每层 3~4 个（原来只有 1~2 个） */
@@ -1803,7 +1856,7 @@ function genBossFloor(firstRun){
 function resetTransient(){
   P.hp=P.maxHp; P.atkCd=0; P.swing=0; P.invuln=0; P.flash=0; P.alive=true; P.walk=0;
   P.dir='down'; P.face=1; P.moving=false;
-  P.lookX=0; P.lookXV=0; P.lookY=0; P.lookYV=0; P.faceT=0; P.faceTV=0;
+  P.lookX=0; P.lookXV=0; P.lookY=0; P.lookYV=0; P.faceT=0; P.faceTV=0; P.bodyT=0; P.bodyTV=0;
   parts.length=0; dnums.length=0;
 }
 /* 整局开始（第 1 层）才清空成长 */
@@ -1969,6 +2022,79 @@ function hitPlayer(dmg){
   if(P.hp<=0){ P.hp=0; P.alive=false; AU.play('die'); G.overTimer=1.2; }
 }
 
+/* 钻地鼠：在地下游向玩家，靠近后破土而出；过一会儿再钻回地下换位置 */
+function updateMole(e,dt,dx,dy,d){
+  if(e.dig){
+    const nx=e.x+dx/d*e.spd*1.05*dt, ny=e.y+dy/d*e.spd*1.05*dt;
+    if(!touchesWall(nx,e.y,e.r*0.95)) e.x=nx;
+    if(!touchesWall(e.x,ny,e.r*0.95)) e.y=ny;
+    e.digT-=dt;
+    if(e.digT<=0&&d<6.5){
+      e.dig=false; e.emerge=0.55; e.stun=0.3; e.cd=R(3.2,5.0);
+      spawnBits(e.x,e.y,10,['#8a6a44','#6b4f2e','#a98a5c']);
+      G.shake=Math.max(G.shake,1.2);
+    }
+    return;
+  }
+  if(e.emerge>0){ e.emerge=Math.max(0,e.emerge-dt); return; }
+  moveE(e,dx/d*e.spd*dt,dy/d*e.spd*dt);
+  if(e.cd<=0&&d<5){
+    e.dig=true; e.digT=R(2.2,4.4);
+    spawnBits(e.x,e.y,8,['#8a6a44','#6b4f2e']);
+  }
+}
+/* 钻地鼠造型：地下只露一撮一起一伏的土包；出土后是圆滚滚的深褐身体、粉色尖鼻、两只大铲爪 */
+function drawMole(ctx,x,y,t,face,flash,dig,emerge){
+  ctx.save(); ctx.translate(x,y);
+  if(dig){
+    const wob=Math.sin(t*9)*1.4;
+    ctx.strokeStyle='rgba(38,24,10,0.55)'; ctx.lineWidth=1;
+    ctx.fillStyle='rgba(0,0,0,0.32)'; ctx.beginPath(); ctx.ellipse(0,3.4,11.6,3.4,0,0,7); ctx.fill();
+    ctx.fillStyle='#4a3419'; ctx.beginPath(); ctx.ellipse(wob*0.3,1.6,10.6,4.0,0,0,7); ctx.fill();
+    ctx.fillStyle='#6a4c28'; ctx.beginPath(); ctx.ellipse(-0.8+wob*0.4,0.2,8.8,3.8,0,0,7); ctx.fill();
+    ctx.fillStyle='#8f7042'; ctx.beginPath(); ctx.ellipse(-1.6+wob*0.5,-1.4,6.2,3.4,0,0,7); ctx.fill();
+    ctx.fillStyle='#ab8a58'; ctx.beginPath(); ctx.ellipse(-2.2+wob*0.6,-2.7,3.4,2.1,0,0,7); ctx.fill();
+    ctx.fillStyle='#3c2a14';
+    ctx.beginPath(); ctx.arc(9.0+Math.sin(t*5)*0.6,2.6,1.2,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-9.4+Math.cos(t*4)*0.7,2.0,1.0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(6.6,-2.6,0.9,0,7); ctx.fill();
+    ctx.restore(); return;
+  }
+  const em=clampNum(1-(emerge||0)/0.55,0,1);
+  const bob=Math.sin(t*8)*0.8;
+  ctx.scale(1.16*(face||1),1.16);
+  ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(0,2.8,9.6,3.3,0,0,7); ctx.fill();
+  ctx.save();
+  ctx.translate(0,(1-em)*7); ctx.scale(1,0.34+0.66*em);
+  ctx.fillStyle=flash>0?'#ffffff':'#5d4430';
+  ctx.beginPath(); ctx.ellipse(-1,-5+bob,9.4,7.6,0,0,7); ctx.fill();
+  ctx.fillStyle=flash>0?'#ffffff':'#7a5c40';
+  ctx.beginPath(); ctx.ellipse(-2.6,-7.4+bob,6.4,4.6,0,0,7); ctx.fill();
+  ctx.fillStyle=flash>0?'#ffffff':'#6b4f36';
+  ctx.beginPath(); ctx.ellipse(4.6,-6.2+bob,4.8,4.2,0,0,7); ctx.fill();
+  ctx.fillStyle='#d9a08c'; ctx.beginPath(); ctx.ellipse(9.0,-6.0+bob,2.1,1.8,0,0,7); ctx.fill();
+  ctx.fillStyle='#9c6a58'; ctx.beginPath(); ctx.ellipse(9.7,-6.0+bob,0.55,0.7,0,0,7); ctx.fill();
+  ctx.fillStyle='#150d07'; ctx.beginPath(); ctx.arc(5.6,-8.4+bob,0.95,0,7); ctx.fill();
+  ctx.strokeStyle='rgba(240,230,210,0.7)'; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(9.6,-6.7+bob); ctx.lineTo(12.2,-7.9+bob); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(9.6,-5.4+bob); ctx.lineTo(12.4,-4.6+bob); ctx.stroke();
+  /* 前爪：两只爪垫压在地上，爪尖往前探 */
+  for(const yy of [-2.6,1.8]){
+    ctx.fillStyle='#c9b491';
+    ctx.beginPath(); ctx.ellipse(7.6,yy+bob*0.4,2.2,1.9,0,0,7); ctx.fill();
+    ctx.strokeStyle='#f6efdd'; ctx.lineWidth=1.0; ctx.lineCap='round';
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.moveTo(8.9+i*0.4,yy+bob*0.4-0.9+i*0.9);
+      ctx.lineTo(10.8+i*0.4,yy+bob*0.4-1.2+i*0.9);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  if(em<1){ ctx.fillStyle='#6a4e30'; ctx.beginPath(); ctx.ellipse(0,2.6,4+8*em,3.1,0,0,7); ctx.fill(); }
+  ctx.restore();
+}
+
 /* ---- 敌人 AI ---- */
 function updateEnemy(e,dt){
   e.t+=dt; e.flash=Math.max(0,e.flash-dt); e.cd=Math.max(0,e.cd-dt);
@@ -2005,10 +2131,12 @@ function updateEnemy(e,dt){
     const wob=Math.sin(e.t*7)*0.85;
     const ang=Math.atan2(dy,dx)+wob;
     moveE(e,Math.cos(ang)*e.spd*0.85*dt,Math.sin(ang)*e.spd*0.85*dt);
+  }else if(e.kind==='mole'){
+    updateMole(e,dt,dx,dy,d);
   }else if(e.kind==='boss'){
     updateBoss(e,dt,d,dx,dy);
   }
-  if(e.kind!=='mush'&&e.kind!=='boss'&&d<e.r+0.36) hitPlayer(e.dmg);
+  if(e.kind!=='mush'&&e.kind!=='boss'&&!(e.kind==='mole'&&e.dig)&&d<e.r+0.36) hitPlayer(e.dmg);
 }
 function updateBoss(e,dt,d,dx,dy){
   const angry=e.hp<e.maxHp*0.5;
@@ -2345,6 +2473,10 @@ function updatePlayer(dt){
   /* 头部左右扭转：只有左右行进时才翻到侧面，待机瞟一眼不参与，免得脸被拧成一条线 */
   const tf=(P.dir==='left'||P.dir==='right')?1:0;
   P.faceTV+=((tf-P.faceT)*K-P.faceTV*D)*edt; P.faceT+=P.faceTV*edt;
+  /* 身体转身弹簧：整副身子一起转过去，带一点回弹 */
+  const tbd=(P.face<0)?0:1;
+  if(!Number.isFinite(P.bodyT)){ P.bodyT=tbd; P.bodyTV=0; }
+  P.bodyTV+=((tbd-P.bodyT)*90-P.bodyTV*13)*edt; P.bodyT+=P.bodyTV*edt;
 }
 function updatePrincess(dt){
   const pr=G.princess; if(!pr) return;
@@ -2437,6 +2569,7 @@ function render(){
     else if(e.kind==='mush') drawMush(ctx,px,py,e.t,e.flash);
     else if(e.kind==='spider') drawSpider(ctx,px,py,e.t,e.face,e.flash);
     else if(e.kind==='bat') drawBat(ctx,px,py,e.t,e.face);
+    else if(e.kind==='mole') drawMole(ctx,px,py,e.t,e.face,e.flash,e.dig,e.emerge);
     else if(e.kind==='bear') drawBear(ctx,px,py,e.t,e.face,e.flash,false);
     else if(e.kind==='boss') drawBear(ctx,px,py,e.t,e.face,e.flash,true);
   };
@@ -2544,8 +2677,8 @@ function drawBossBar(){
 /* 墙只有贴着地板的那一面才画砖面，厚度 10px —— 视觉上是一堵薄墙，墙体内部压成暗影 */
 const THIN=10;
 function drawWallStrip(px,py,w,h,o,hv,seed){
-  const b=0.88+hv*0.20;
-  ctx.fillStyle='rgb('+Math.round(128*b)+','+Math.round(102*b)+','+Math.round(74*b)+')';
+  const b=0.86+hv*0.22;
+  ctx.fillStyle='rgb('+Math.round(106*b)+','+Math.round(98*b)+','+Math.round(86*b)+')';
   ctx.fillRect(px,py,w,h);
   ctx.fillStyle='rgba(255,228,180,0.18)';
   if(o==='top'||o==='bottom') ctx.fillRect(px,py+(o==='top'?0:h-1.6),w,1.6);
@@ -2599,11 +2732,11 @@ function drawTiles(){
       if(!wallAt(tx-1,ty)){ ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(px,py,4,TILE); }
       if(!wallAt(tx+1,ty)){ ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(px+TILE-4,py,4,TILE); }
     }else{
-      const v=0.92+h*0.10;
+      const v=0.82+h*0.16;
       /* 墙体内部：一块压暗的石腔，不做满格厚砖 */
-      ctx.fillStyle='rgb('+Math.round(46*v)+','+Math.round(39*v)+','+Math.round(30*v)+')';
+      ctx.fillStyle='rgb('+Math.round(64*v)+','+Math.round(59*v)+','+Math.round(52*v)+')';
       ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='rgba(150,128,98,0.06)';
+      ctx.fillStyle='rgba(168,160,142,0.07)';
       ctx.fillRect(px+((tx*7)%3)*9,py+((ty*5)%3)*9,TILE-14,4);
       if(h>0.55) ctx.fillRect(px+4+((tx*3)%9),py+17+((ty*7)%7),10,3);
       /* 只有贴着地板的那一面才铺一条薄砖 */
@@ -2687,7 +2820,7 @@ function drawMini(){
   if(G.stairs){ mctx.fillStyle='#7fe8a8'; mctx.fillRect(G.stairs.x*sc-1,G.stairs.y*sc-1,3,3); }
   for(const c of G.chests) if(!c.opened){ mctx.fillStyle='#ffc860'; mctx.fillRect(c.x*sc-1,c.y*sc-1,3,3); }
   if(G.shop){ mctx.fillStyle='#8fb8ff'; mctx.fillRect(G.shop.x*sc-1,G.shop.y*sc-1,3,3); }
-  for(const e of G.ents) if(!e.dead&&e.kind!=='boss'){
+  for(const e of G.ents) if(!e.dead&&e.kind!=='boss'&&!(e.kind==='mole'&&e.dig)){
     if(e.guard){ mctx.fillStyle='#ffd27a'; mctx.fillRect(e.x*sc-1.5,e.y*sc-1.5,3.2,3.2); }
     else{ mctx.fillStyle=e.secret?'#9b6ad0':'#d94b3d'; mctx.fillRect(e.x*sc-1,e.y*sc-1,2.4,2.4); }
   }
@@ -2763,7 +2896,7 @@ function renderCampHero(){
   x.fillStyle='#3d2c1b'; x.fillRect(0,96,160,34);
   x.fillStyle='#4d3822'; x.fillRect(0,96,160,3);
   P.face=1; P.dir='down'; P.moving=true; P.walk=G.time*0.9; P.swing=0.12+Math.sin(G.time*2)*0.35;
-  P.lookX=0; P.lookY=1; P.faceT=0;
+  P.lookX=0; P.lookY=1; P.faceT=0; P.bodyT=0; P.bodyTV=0;
   x.save(); x.translate(80,84); x.scale(2.3,2.3);
   drawPlayer(x,0,0);
   x.restore();
@@ -2820,7 +2953,7 @@ function titleLoop(){
   /* ---- 主角团 ---- */
   if(showCast){
     const bob=Math.sin(G.time*2)*2;
-    P.face=1; P.walk=G.time*1.4; P.dir='down'; P.lookX=0; P.lookY=1; P.faceT=0;
+    P.face=1; P.walk=G.time*1.4; P.dir='down'; P.lookX=0; P.lookY=1; P.faceT=0; P.bodyT=0; P.bodyTV=0;
     x.save(); x.translate(w*0.17,footY-15.5*pz); x.scale(pz,pz);
     drawPlayer(x,0,0); x.restore();
 
