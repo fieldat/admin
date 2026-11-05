@@ -209,6 +209,14 @@ body.coarse .ctrl-card.touch{display:grid}
 .sub{display:flex;gap:6px}
 .chip{display:flex;align-items:center;gap:5px;font-size:12px;background:#241709;border:1px solid #5a4126;border-radius:999px;padding:2px 9px}
 .chip b{color:var(--gold)}
+.stat-toggle{pointer-events:auto;align-self:flex-start;display:flex;align-items:center;gap:5px;font:inherit;font-size:11.5px;font-weight:700;color:var(--gold);background:#241709;border:1px solid #5a4126;border-radius:999px;padding:2px 10px;cursor:pointer;line-height:1.5}
+.stat-toggle:hover{filter:brightness(1.18)}
+.stat-toggle .ar{display:inline-block;transition:transform .16s}
+.stat-toggle.on .ar{transform:rotate(180deg)}
+.stat-panel{display:none;grid-template-columns:1fr 1fr;gap:3px 12px;padding:7px 9px;background:#1b1207;border:1px solid #5a4126;border-radius:9px;width:206px}
+.stat-panel.on{display:grid}
+.sv{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--dim);white-space:nowrap}
+.sv b{color:#ffe9b8;font-weight:700;margin-left:6px}
 .hud-r{position:absolute;top:56px;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;font-size:13px;background:rgba(20,14,8,.78);border:2px solid #5a4126;border-radius:12px;padding:8px 12px}
 .stat{display:flex;align-items:center;gap:6px}
 .stat b{color:#ffe9b8}
@@ -224,6 +232,9 @@ body.coarse .ctrl-card.touch{display:grid}
   .hpbar{width:98px;height:13px}
   #hpnum{font-size:11px;min-width:38px}
   .chip{font-size:10.5px;padding:1px 7px;gap:4px}
+  .stat-toggle{font-size:10px;padding:1px 8px}
+  .stat-panel{width:158px;gap:2px 8px;padding:6px 7px}
+  .sv{font-size:10px}
   .hud-r{top:50px;right:8px;padding:6px 8px;font-size:11px;gap:2px}
   #mini{width:84px;height:63px;margin-top:0}
   #toasts{bottom:158px}
@@ -264,6 +275,21 @@ body.coarse #touch{display:block}
         <span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h10v2H7zM7 4c0-2 10-2 10 0v2c2 1 3 2 3 5v9H4v-9c0-3 1-4 3-5V4z" fill="#ffc860"/><circle cx="12" cy="14" r="2.2" fill="#8a4a12"/></svg><b id="honeynum">0</b></span>
         <span class="chip">攻 <b id="atknum"></b></span>
         <span class="chip">距 <b id="rangenum"></b></span>
+      </div>
+      <button id="btnStats" class="stat-toggle" type="button" aria-expanded="false"><span class="ar">▾</span>详细数值</button>
+      <div id="statPanel" class="stat-panel">
+        <div class="sv"><span>攻击力</span><b id="svDmg">-</b></div>
+        <div class="sv"><span>攻速/秒</span><b id="svAspd">-</b></div>
+        <div class="sv"><span>暴击率</span><b id="svCrit">-</b></div>
+        <div class="sv"><span>吸血</span><b id="svLs">-</b></div>
+        <div class="sv"><span>攻击距离</span><b id="svRange">-</b></div>
+        <div class="sv"><span>移动速度</span><b id="svSpd">-</b></div>
+        <div class="sv"><span>生命上限</span><b id="svHp">-</b></div>
+        <div class="sv"><span>强化卷轴</span><b id="svScroll">-</b></div>
+        <div class="sv"><span>金币</span><b id="svCoin">-</b></div>
+        <div class="sv"><span>击杀</span><b id="svKill">-</b></div>
+        <div class="sv"><span>蜂蜜</span><b id="svHoney">-</b></div>
+        <div class="sv"><span>本层怪</span><b id="svEnts">-</b></div>
       </div>
     </div>
     <div class="hud-r">
@@ -519,12 +545,23 @@ const FLOOR_ENEMIES=[
   [['bee',12],['boar',8],['mush',6],['bear',8],['spider',6],['bat',6]]
 ];
 const FLOOR_NAMES=['泥土层','苔藓层','蘑菇层','岩骨层','熊王殿'];
+/* ===== 守层 boss：每层楼梯前蹲着一只精英怪，第 5 层由熊王本尊坐镇 ===== */
+const GUARDS=[
+  {name:'石牙野猪王',   base:'boar',  hpMul:3.3, dmgMul:1.35, sc:1.86, col:'#e0a45a', tag:'冲锋'},
+  {name:'剧毒蘑菇王',   base:'mush',  hpMul:2.8, dmgMul:1.45, sc:1.90, col:'#b07ae0', tag:'毒孢子'},
+  {name:'洞穴蜘蛛女王', base:'spider',hpMul:3.4, dmgMul:1.40, sc:1.76, col:'#7fd0a8', tag:'突袭'},
+  {name:'血翼蝙蝠王',   base:'bat',   hpMul:3.2, dmgMul:1.50, sc:1.84, col:'#e07a9a', tag:'吸血'}
+];
+/* 可摧毁道具：木桶 / 木箱 / 暗墙（暗墙打破才能进密室） */
+const PROP_HP={barrel:30, crate:26, crack:46};
+/* 压力板：踩下去 0.26 秒后触发，之后冷却复位 */
+const PLATE_PRESS=0.26, PLATE_RESET=2.0;
 
 /* ===== 全局状态 ===== */
 const G={view:'title', floor:1, map:null, rooms:[], ents:[], shots:[], items:[], chests:[], shop:null,
   stairs:null, torches:[], cage:null, princess:null, explored:new Set(), cam:{x:0,y:0},
   time:0, paused:false, bossDead:false, clear:false, shake:0, overTimer:0, winTimer:0,
-  blood:[], corpses:[], decor:[], traps:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
+  blood:[], corpses:[], decor:[], traps:[], props:[], secret:[], scrolls:{dmg:0,aspd:0,spd:0,hp:0,crit:0,ls:0,range:0},
   run:{kills:0,coins:0,wood:0,start:0,scrolls:0,floorMax:1}};
 const P={x:0,y:0,hp:100,maxHp:100,dmg:18,spd:3.1,r:0.3,atkCd:0,swing:0,swingDur:0.26,atkRange:2.0,invuln:0,flash:0,
   coins:0,honey:1,face:1,dir:'down',moving:false,walk:0,alive:true,atkBtn:false,
@@ -968,6 +1005,40 @@ function drawBarrel(ctx,x,y){
   ctx.fillStyle='rgba(255,220,170,0.12)'; ctx.fillRect(-5,-6,2,12);
   ctx.restore();
 }
+/* ---- 可摧毁的木箱（打破掉东西） ---- */
+function drawCrate(ctx,x,y,pr){
+  const hurt=pr?(1-pr.hp/pr.max):0;
+  ctx.save(); ctx.translate(x,y);
+  if(pr&&pr.hit>0) ctx.translate(R(-1.2,1.2),0);
+  ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(0,8,10,3.2,0,0,7); ctx.fill();
+  ctx.fillStyle='#8a5c30'; rr(ctx,-9,-9,18,18,2); ctx.fill();
+  ctx.fillStyle='#a9773f'; ctx.fillRect(-9,-9,18,3);
+  ctx.strokeStyle='rgba(60,36,16,0.85)'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(-9,-1); ctx.lineTo(9,-1); ctx.moveTo(-9,4); ctx.lineTo(9,4); ctx.stroke();
+  ctx.strokeStyle='rgba(60,36,16,0.6)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(-2,-9); ctx.lineTo(-2,9); ctx.moveTo(3,-9); ctx.lineTo(3,9); ctx.stroke();
+  ctx.fillStyle='rgba(255,225,170,0.13)'; ctx.fillRect(-8,-8,2,16);
+  /* 敲裂的痕迹随血量增加 */
+  if(hurt>0.35){ ctx.strokeStyle='rgba(30,16,6,0.75)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(-3,-8); ctx.lineTo(1,-2); ctx.lineTo(-2,4); ctx.stroke(); }
+  if(hurt>0.7){ ctx.beginPath(); ctx.moveTo(6,-8); ctx.lineTo(4,-1); ctx.lineTo(8,3); ctx.stroke();
+    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(-6,2,5,4); }
+  ctx.restore();
+}
+/* ---- 地面石头 ---- */
+function drawRock(ctx,x,y,variant){
+  ctx.save(); ctx.translate(x,y);
+  const s=0.8+(variant||0)*0.14;
+  ctx.fillStyle='rgba(0,0,0,0.26)'; ctx.beginPath(); ctx.ellipse(0,4*s,9*s,3.4*s,0,0,7); ctx.fill();
+  ctx.fillStyle='#6e7076';
+  ctx.beginPath(); ctx.moveTo(-8*s,2*s); ctx.lineTo(-6*s,-5*s); ctx.lineTo(0,-7*s); ctx.lineTo(6*s,-5*s); ctx.lineTo(8*s,2*s); ctx.lineTo(4*s,4*s); ctx.lineTo(-4*s,4*s); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#8b8e94';
+  ctx.beginPath(); ctx.moveTo(-6*s,-5*s); ctx.lineTo(0,-7*s); ctx.lineTo(4*s,-4.4*s); ctx.lineTo(-1.5*s,-2.6*s); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(255,240,215,0.22)';
+  ctx.beginPath(); ctx.moveTo(-5*s,-4.6*s); ctx.lineTo(0,-6.4*s); ctx.lineTo(2.4*s,-4.6*s); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(30,26,20,0.45)'; ctx.beginPath(); ctx.ellipse(1.5*s,2.4*s,4*s,2*s,0,0,7); ctx.fill();
+  ctx.restore();
+}
 function drawMushCluster(ctx,x,y,t){
   ctx.save(); ctx.translate(x,y);
   for(let i=0;i<3;i++){
@@ -1043,6 +1114,7 @@ function drawDecor(ctx){
     else if(d.kind==='bones') drawBones(ctx,px,py);
     else if(d.kind==='barrel') drawBarrel(ctx,px,py);
     else if(d.kind==='mush') drawMushCluster(ctx,px,py,G.time);
+    else if(d.kind==='rock') drawRock(ctx,px,py,d.variant);
     else if(d.kind==='skeleton') drawSkeleton(ctx,px,py,G.time,d.variant);
   }
 }
@@ -1120,11 +1192,129 @@ function drawFlameVent(ctx,x,y,tr){
     ctx.restore();
   }
 }
+/* ---- 压力踏板：踩下去会从墙里射箭，或者在板子上炸出地刺 ---- */
+function drawPlateTrap(ctx,x,y,tr){
+  const press=tr.press>0?1:0, warn=tr.warn||0, fire=tr.fire||0, t=G.time;
+  const armed=tr.cd<=0;
+  ctx.save(); ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.beginPath(); ctx.ellipse(0,3.4,13,5.6,0,0,7); ctx.fill();
+  const dy=press?1.6:0;
+  ctx.fillStyle='#241e18'; rr(ctx,-12,-8+dy,24,15-dy,3); ctx.fill();
+  ctx.fillStyle='#5d5244'; rr(ctx,-11,-7+dy,22,13-dy,2.6); ctx.fill();
+  ctx.fillStyle='#726555'; rr(ctx,-9.5,-5.6+dy,19,10-dy*0.8,2); ctx.fill();
+  ctx.strokeStyle='rgba(20,14,8,0.8)'; ctx.lineWidth=1;
+  rr(ctx,-11,-7+dy,22,13-dy,2.6); ctx.stroke();
+  /* 四角铆钉 */
+  ctx.fillStyle='#a89a82';
+  for(const q of [[-8,-4.6+dy],[8,-4.6+dy],[-8,3.2+dy],[8,3.2+dy]]){
+    ctx.beginPath(); ctx.arc(q[0],q[1],1.3,0,7); ctx.fill();
+  }
+  /* 板面标记：箭模式画箭头，刺模式画尖刺 */
+  ctx.strokeStyle=armed?'rgba(255,196,96,0.85)':'rgba(140,120,90,0.6)';
+  ctx.fillStyle=armed?'rgba(255,196,96,0.85)':'rgba(140,120,90,0.6)';
+  if(tr.mode==='arrow'){
+    const a=Math.atan2(tr.dy,tr.dx);
+    ctx.save(); ctx.translate(0,-0.6+dy); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(-2,-3.6); ctx.lineTo(-2,-1.4); ctx.lineTo(-6,-1.4);
+    ctx.lineTo(-6,1.4); ctx.lineTo(-2,1.4); ctx.lineTo(-2,3.6); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }else{
+    for(let i=-1;i<=1;i++){
+      ctx.beginPath(); ctx.moveTo(i*4.4-2,3.2+dy); ctx.lineTo(i*4.4,3.2+dy-5.4); ctx.lineTo(i*4.4+2,3.2+dy); ctx.closePath(); ctx.fill();
+    }
+  }
+  /* 触发瞬间的红光 */
+  if(fire>0||warn>0){
+    const gl=Math.max(0.25,fire*1.6)+(warn?0.25+Math.sin(t*28)*0.16:0);
+    ctx.fillStyle='rgba(255,70,36,'+Math.min(0.85,gl).toFixed(2)+')';
+    rr(ctx,-9.5,-5.6+dy,19,10-dy*0.8,2); ctx.fill();
+  }
+  ctx.restore();
+}
+/* 墙上的箭槽：贴在这块墙的内侧面，射箭时整条缝发亮 */
+function drawWallSlit(ctx,tr){
+  const px=tr.x*TILE-tr.dx*23, py=tr.y*TILE-tr.dy*23;
+  const a=Math.atan2(tr.dy,tr.dx);
+  const fire=tr.fire||0;
+  ctx.save(); ctx.translate(px,py); ctx.rotate(a);
+  ctx.fillStyle='rgba(0,0,0,0.55)'; rr(ctx,-7,-7,14,14,2); ctx.fill();
+  ctx.fillStyle='#2b251d'; rr(ctx,-6,-6,12,12,2); ctx.fill();
+  ctx.fillStyle='#120d08'; rr(ctx,-2.6,-5,5.2,10,1); ctx.fill();
+  if(fire>0){
+    ctx.fillStyle='rgba(255,170,70,'+Math.min(1,fire*2.4).toFixed(2)+')';
+    rr(ctx,-2.6,-5,5.2,10,1); ctx.fill();
+    ctx.fillStyle='rgba(255,250,220,'+Math.min(1,fire*3).toFixed(2)+')';
+    rr(ctx,-1.2,-4,2.4,8,1); ctx.fill();
+  }
+  /* 槽框的金属铆边 */
+  ctx.fillStyle='#6b5f4c'; ctx.fillRect(-6,-6.8,12,1.8); ctx.fillRect(-6,5,12,1.8);
+  ctx.restore();
+}
+/* 暗墙：墙里藏门的砖块，敲开就能进密室 */
+function drawCrack(ctx,pr){
+  const px=pr.x*TILE, py=pr.y*TILE;
+  const hurt=1-pr.hp/pr.max;
+  ctx.save(); ctx.translate(px,py);
+  ctx.fillStyle='#5a5040'; ctx.fillRect(-16,-16,32,32);
+  ctx.fillStyle='#6d6150'; ctx.fillRect(-15,-15,30,14); ctx.fillRect(-15,1,30,14);
+  ctx.strokeStyle='rgba(20,14,8,0.55)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(-16,-1); ctx.lineTo(16,-1); ctx.moveTo(-16,15); ctx.lineTo(16,15); ctx.stroke();
+  /* 裂缝：越敲越裂，还透出密室里的一点光 */
+  ctx.strokeStyle='rgba(10,6,2,'+(0.55+hurt*0.35).toFixed(2)+')'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(-9,-15); ctx.lineTo(-4,-6); ctx.lineTo(-7,2); ctx.lineTo(-1,13); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(9,-13); ctx.lineTo(3,-3); ctx.lineTo(7,6); ctx.lineTo(2,14); ctx.stroke();
+  if(hurt>0.35){
+    ctx.fillStyle='rgba(255,150,60,'+(0.10+hurt*0.30).toFixed(2)+')';
+    ctx.beginPath(); ctx.ellipse(0,-2,7,9,0,0,7); ctx.fill();
+  }
+  if(hurt>0.6){
+    ctx.fillStyle='rgba(8,5,2,0.85)';
+    ctx.beginPath(); ctx.ellipse(-2,4,5,4.5,0,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+/* 守层 boss 的金冠 + 光环 */
+function drawCrown(ctx,px,py,sc,col){
+  const bob=Math.sin(G.time*2.4)*1.6;
+  const y=py-27*(sc||1.5)-8+bob;
+  ctx.save(); ctx.translate(px,y);
+  ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0,9,9,3,0,0,7); ctx.fill();
+  ctx.fillStyle='#ffd27a';
+  ctx.beginPath();
+  ctx.moveTo(-8,4); ctx.lineTo(-8,-2); ctx.lineTo(-4,-4.6); ctx.lineTo(0,-8);
+  ctx.lineTo(4,-4.6); ctx.lineTo(8,-2); ctx.lineTo(8,4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#ffe9a8'; ctx.fillRect(-8,-1.6,16,2);
+  ctx.fillStyle=col||'#ff7a5e'; ctx.beginPath(); ctx.arc(0,-2.6,1.6,0,7); ctx.fill();
+  ctx.restore();
+}
 function drawTraps(ctx){
   for(const tr of G.traps){
     if(!G.explored.has(Math.floor(tr.x)+','+Math.floor(tr.y))) continue;
     if(tr.kind==='spike') drawSpikeTrap(ctx,tr.x*TILE,tr.y*TILE,tr);
-    else drawFlameVent(ctx,tr.x*TILE,tr.y*TILE,tr);
+    else if(tr.kind==='vent') drawFlameVent(ctx,tr.x*TILE,tr.y*TILE,tr);
+    else if(tr.kind==='plate'){
+      const wx=Math.floor(tr.x)-tr.dx, wy=Math.floor(tr.y)-tr.dy;
+      if(G.explored.has(wx+','+wy)&&tr.mode==='arrow') drawWallSlit(ctx,tr);
+      drawPlateTrap(ctx,tr.x*TILE,tr.y*TILE,tr);
+    }
+  }
+}
+/* 可摧毁道具（木桶/木箱/暗墙） */
+function drawProps(ctx){
+  for(const pr of G.props){
+    if(pr.broken) continue;
+    const tx=Math.floor(pr.x), ty=Math.floor(pr.y);
+    if(pr.kind==='crack'){
+      if(!G.explored.has(tx+','+ty)) continue;
+      drawCrack(ctx,pr);
+      continue;
+    }
+    if(!G.explored.has(tx+','+ty)) continue;
+    if(pr.kind==='barrel') drawBarrel(ctx,pr.x*TILE,pr.y*TILE);
+    else drawCrate(ctx,pr.x*TILE,pr.y*TILE,pr);
+    /* 打裂后冒一点碎屑 */
+    if(pr.hit>0&&chance(0.25)) parts.push({x:pr.x,y:pr.y-0.2,vx:R(-0.8,0.8),vy:R(-1.6,-0.4),
+      life:R(0.2,0.4),col:pick(['#c89a5e','#8a6234']),size:R(1.5,2.6),grav:6});
   }
 }
 
@@ -1286,11 +1476,193 @@ function addTraps(start){
       break;
     }
   }
+  addPlates(pool);
+}
+/* 压力踏板：贴墙摆一块，一种从墙里射箭、一种原地炸出地刺 */
+function addPlates(pool){
+  const dirs=[[0,-1],[0,1],[-1,0],[1,0]];
+  const clear=(x,y)=>{
+    const tx=Math.floor(x), ty=Math.floor(y);
+    if(tx<1||ty<1||tx>=MAP_W-1||ty>=MAP_H-1) return false;
+    if(G.map[ty][tx]!==1) return false;
+    if(dist(x,y,P.x,P.y)<2.4) return false;
+    if(G.stairs&&dist(x,y,G.stairs.x,G.stairs.y)<2.4) return false;
+    if(G.shop&&dist(x,y,G.shop.x,G.shop.y)<2.4) return false;
+    for(const c of G.chests) if(dist(x,y,c.x,c.y)<1.6) return false;
+    for(const it of G.items) if(dist(x,y,it.x,it.y)<1.4) return false;
+    for(const d of G.decor) if(d.kind==='fire'&&dist(x,y,d.x,d.y)<2.0) return false;
+    for(const t of G.traps) if(dist(x,y,t.x,t.y)<1.8) return false;
+    return true;
+  };
+  const n=RI(2,3);
+  for(let i=0;i<n;i++){
+    for(let k=0;k<60;k++){
+      const r=pick(pool);
+      const d=pick(dirs);
+      /* 踏板就摆在房间靠墙的那一圈：箭头方向朝房间里面，背后的那一格才是墙 */
+      let tx,ty;
+      if(d[0]===0){
+        ty=d[1]===1?r.y:r.y+r.h-1;
+        tx=RI(r.x+1,Math.max(r.x+1,r.x+r.w-2));
+      }else{
+        tx=d[0]===1?r.x:r.x+r.w-1;
+        ty=RI(r.y+1,Math.max(r.y+1,r.y+r.h-2));
+      }
+      const x=tx+0.5, y=ty+0.5;
+      if(!clear(x,y)) continue;
+      if(!wallAt(tx-d[0],ty-d[1])) continue;                 /* 背后要有墙，箭才射得出来 */
+      let open=true;
+      for(let s=1;s<=3;s++) if(wallAt(tx+d[0]*s,ty+d[1]*s)){ open=false; break; }
+      if(!open) continue;
+      G.traps.push({kind:'plate',mode:chance(0.62)?'arrow':'spike',x,y,dx:d[0],dy:d[1],
+        press:0,cd:R(0,0.5),fire:0,warn:0,up:0});
+      break;
+    }
+  }
+}
+/* 可摧毁木桶 / 木箱 / 暗墙：先定一个通用的落点校验 */
+function propSpotFree(x,y){
+  const tx=Math.floor(x), ty=Math.floor(y);
+  if(tx<1||ty<1||tx>=MAP_W-1||ty>=MAP_H-1) return false;
+  if(G.map[ty][tx]!==1) return false;
+  if(dist(x,y,P.x,P.y)<1.8) return false;
+  if(G.stairs&&dist(x,y,G.stairs.x,G.stairs.y)<1.8) return false;
+  if(G.shop&&dist(x,y,G.shop.x,G.shop.y)<1.8) return false;
+  for(const c of G.chests) if(dist(x,y,c.x,c.y)<1.3) return false;
+  for(const it of G.items) if(dist(x,y,it.x,it.y)<1.1) return false;
+  for(const d of G.decor) if(dist(x,y,d.x,d.y)<0.9) return false;
+  for(const t of G.traps) if(dist(x,y,t.x,t.y)<1.1) return false;
+  for(const pr of G.props) if(dist(x,y,pr.x,pr.y)<1.1) return false;
+  return true;
+}
+function addProps(start){
+  const pool=G.rooms.filter(r=>r!==start);
+  const n=RI(7,10);
+  for(let i=0;i<n;i++){
+    for(let k=0;k<26;k++){
+      const r=pick(pool);
+      const x=r.x+0.7+Math.random()*Math.max(0.4,r.w-1.4);
+      const y=r.y+0.8+Math.random()*Math.max(0.4,r.h-1.6);
+      if(!propSpotFree(x,y)) continue;
+      const kind=chance(0.5)?'barrel':'crate';
+      G.props.push({kind,x,y,hp:PROP_HP[kind],max:PROP_HP[kind],hit:0,broken:false});
+      break;
+    }
+  }
+}
+/* 地面碎石 */
+function addRocks(n){
+  for(let i=0;i<n;i++){
+    for(let k=0;k<20;k++){
+      const r=pick(G.rooms);
+      const x=r.x+0.45+Math.random()*Math.max(0.2,r.w-0.9);
+      const y=r.y+0.5+Math.random()*Math.max(0.2,r.h-1.0);
+      if(!propSpotFree(x,y)) continue;
+      G.decor.push({kind:'rock',variant:RI(0,2),x,y});
+      break;
+    }
+  }
+}
+/* 墙里的密室：3×3 一间，门口是一块暗墙，敲开才通 */
+function addSecretRooms(){
+  const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+  const W3=3, H3=3;
+  let made=0;
+  for(const r of shuffle(G.rooms.slice())){
+    if(made>=2) break;
+    for(let k=0;k<10;k++){
+      const d=pick(dirs);
+      let fx,fy;
+      if(d[1]===1){ fx=RI(r.x+1,Math.max(r.x+1,r.x+r.w-2)); fy=r.y+r.h-1; }
+      else if(d[1]===-1){ fx=RI(r.x+1,Math.max(r.x+1,r.x+r.w-2)); fy=r.y; }
+      else if(d[0]===1){ fx=r.x+r.w-1; fy=RI(r.y+1,Math.max(r.y+1,r.y+r.h-2)); }
+      else { fx=r.x; fy=RI(r.y+1,Math.max(r.y+1,r.y+r.h-2)); }
+      if(G.map[fy][fx]!==1) continue;
+      const wx=fx+d[0], wy=fy+d[1], sx=wx+d[0], sy=wy+d[1];
+      if(wx<1||wy<1||wx>=MAP_W-1||wy>=MAP_H-1) continue;
+      if(G.map[wy][wx]!==0) continue;
+      if(sx<2||sy<2||sx+W3>MAP_W-2||sy+H3>MAP_H-2) continue;
+      let bad=false;
+      for(let y=sy-1;y<=sy+H3&&!bad;y++)for(let x=sx-1;x<=sx+W3&&!bad;x++){
+        if(x>=sx&&x<sx+W3&&y>=sy&&y<sy+H3) continue;
+        if(x===wx&&y===wy) continue;
+        if(G.map[y][x]!==0) bad=true;
+      }
+      if(bad) continue;
+      carve(sx,sy,W3,H3);
+      const type=chance(0.55)?'reward':'monster';
+      G.secret.push({x:sx,y:sy,w:W3,h:H3,type,door:{x:wx,y:wy},opened:false});
+      G.props.push({kind:'crack',x:wx+0.5,y:wy+0.5,tx:wx,ty:wy,
+        hp:PROP_HP.crack,max:PROP_HP.crack,hit:0,broken:false});
+      if(type==='reward'){
+        G.chests.push({x:sx+1.5,y:sy+1.5,opened:false,secret:true});
+        G.items.push({kind:'potion',pkind:pick(['dmg','aspd','range']),x:sx+0.55,y:sy+0.55});
+        G.items.push({kind:'potion',pkind:pick(['dmg','aspd','range']),x:sx+W3-0.55,y:sy+H3-0.6});
+        G.items.push({kind:'honey',x:sx+1.5,y:sy+H3-0.6});
+      }else{
+        const kinds=G.floor>=3?['bear','spider','boar']:['bee','spider','boar'];
+        for(let i=0;i<3;i++){
+          const e=spawnEnemy(kinds[i],sx+0.6+Math.random()*(W3-1.2),sy+0.6+Math.random()*(H3-1.2));
+          e.secret=true;
+        }
+        G.chests.push({x:sx+W3-0.55,y:sy+H3-0.6,opened:false,secret:true});
+      }
+      made++;
+      break;
+    }
+  }
+}
+/* 守层 boss：体型更大、血更厚，蹲在楼梯旁边 */
+function spawnGuard(x,y){
+  const gf=GUARDS[Math.min(G.floor-1,GUARDS.length-1)];
+  const e=spawnEnemy(gf.base,x,y);
+  e.hp=Math.round(e.hp*gf.hpMul); e.maxHp=e.hp;
+  e.dmg=e.dmg*gf.dmgMul; e.r=e.r*1.3; e.sc=gf.sc; e.guard=gf;
+  e.coin*=8; e.wood*=8; e.spd*=0.94;
+  return e;
+}
+function spotAround(cx,cy,rMin,rMax){
+  for(let k=0;k<30;k++){
+    const a=R(0,Math.PI*2), r=R(rMin,rMax);
+    const x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r;
+    if(!wallAt(Math.floor(x),Math.floor(y))) return {x,y};
+  }
+  return null;
+}
+/* 打碎木桶 / 木箱的掉落，以及暗墙被敲开 */
+function breakProp(pr){
+  pr.broken=true; pr.hp=0;
+  G.shake=Math.max(G.shake,3.4);
+  if(pr.kind==='crack'){
+    G.map[pr.ty][pr.tx]=1;
+    spawnBits(pr.x,pr.y,12,['#8a8070','#5a5040','#a89a82']);
+    for(let i=0;i<10;i++) parts.push({x:pr.x,y:pr.y,vx:R(-2.4,2.4),vy:R(-2.8,-0.4),
+      life:R(0.3,0.6),col:pick(['#8a8070','#6d6150']),size:R(2,4),grav:7});
+    const sec=G.secret.find(s=>s.door.x===pr.tx&&s.door.y===pr.ty);
+    if(sec&&!sec.opened){
+      sec.opened=true;
+      toast(sec.type==='reward'?'暗墙后面是一间奖励房！':'暗墙后面关着一群怪！');
+      AU.play('chest');
+    }
+    return;
+  }
+  spawnBits(pr.x,pr.y,10,pr.kind==='crate'?['#c89a5e','#a9773f','#6b4522']:['#a6743e','#7a4e26','#5a3a1c']);
+  AU.play('chest');
+  const roll=Math.random();
+  const dropAt=(kind,pkind)=>{
+    G.items.push({kind,pkind,x:pr.x+R(-0.22,0.22),y:pr.y+R(-0.12,0.22)});
+  };
+  if(roll<0.34){ const n=RI(4,10); addCoins(n); toast('砸开'+(pr.kind==='crate'?'木箱':'木桶')+'，翻出 '+n+' 金币'); }
+  else if(roll<0.62){ dropAt('honey'); toast('砸开了，滚出一罐蜂蜜'); }
+  else if(roll<0.86){ dropAt('potion',pick(['dmg','aspd','range'])); toast('砸开了，掉出一瓶药剂'); }
+  else if(roll<0.94){ grantScroll(pick(SCROLLS)); }
+  else toast('里面只有一堆碎木片…');
 }
 function genFloor(firstRun){
   G.map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
   G.rooms=[]; G.ents=[]; G.shots=[]; G.items=[]; G.chests=[]; G.shop=null; G.torches=[];
   G.cage=null; G.princess=null; G.bossDead=false; G.clear=false; G.explored=new Set(); G.blood=[]; G.corpses=[]; G.decor=[]; G.traps=[];
+  G.props=[]; G.secret=[];
   if(G.floor===FLOORS){ genBossFloor(); return; }
   const gcols=4, grows=3, cw=Math.floor(MAP_W/gcols), ch=Math.floor(MAP_H/grows);
   for(let gy=0;gy<grows;gy++)for(let gx=0;gx<gcols;gx++){
@@ -1305,6 +1677,8 @@ function genFloor(firstRun){
     if(i%gcols<gcols-1) connect(r,G.rooms[i+1]);
     if(i+gcols<G.rooms.length) connect(r,G.rooms[i+gcols]);
   }
+  /* 墙里挖 1~2 间密室（奖励房 / 怪物房），门是一块暗墙 */
+  addSecretRooms();
   const start=G.rooms[0];
   P.x=start.cx+0.5; P.y=start.cy+0.5;
   let far=start;
@@ -1344,7 +1718,7 @@ function genFloor(firstRun){
     const r=pick(G.rooms);
     const x=chance(0.5)?r.x+0.45:r.x+r.w-0.75;
     const y=r.y+0.6+Math.random()*Math.max(0.4,r.h-1.2);
-    G.decor.push({kind:pick(['bones','bones','barrel','mush']),x,y});
+    G.decor.push({kind:pick(['bones','bones','mush','bones']),x,y});
   }
   /* 骷髅架子：靠墙站立或吊在木架上 */
   for(let i=0;i<RI(3,5);i++){
@@ -1353,8 +1727,11 @@ function genFloor(firstRun){
     const y=r.y+0.9+Math.random()*Math.max(0.4,r.h-2.0);
     G.decor.push({kind:'skeleton',variant:chance(0.45)?1:0,x,y});
   }
-  /* 地刺 / 火口：铺在各房间里，逼玩家绕路 */
+  /* 地刺 / 火口 / 压力踏板：铺在各房间里，逼玩家绕路 */
   addTraps(start);
+  /* 可砸的木桶木箱 + 地面碎石 */
+  addProps(start);
+  addRocks(RI(10,16));
   /* 出怪：按房间轮转分散落点，翻倍后不再堆在同一个点上 */
   const list=FLOOR_ENEMIES[Math.min(G.floor-1,3)];
   let ei=0;
@@ -1364,6 +1741,9 @@ function genFloor(firstRun){
       r.x+1.15+Math.random()*Math.max(0.6,r.w-2.3),
       r.y+1.15+Math.random()*Math.max(0.5,r.h-2.3));
   }
+  /* 守层 boss：蹲在楼梯旁边，拦住上楼的必经之路 */
+  const gs=spotAround(G.stairs.x,G.stairs.y,1.9,2.7)||{x:G.stairs.x+1.5,y:G.stairs.y};
+  spawnGuard(gs.x,gs.y);
   if(firstRun) resetRunState(); else carryFloorState();
 }
 function genBossFloor(firstRun){
@@ -1380,8 +1760,15 @@ function genBossFloor(firstRun){
   for(let i=8;i<MAP_W-8;i+=12) G.decor.push({kind:'fire',x:i+0.5,y:MAP_H-6.5,t:R(0,6)});
   [[2,2,0],[MAP_W-3,2,1],[MAP_W-3,MAP_H-3,2],[2,MAP_H-3,3]].forEach(c=>
     G.decor.push({kind:'web',x:c[0],y:c[1],corner:c[2]}));
-  for(let i=0;i<12;i++) G.decor.push({kind:pick(['bones','barrel']),
+  for(let i=0;i<12;i++) G.decor.push({kind:pick(['bones','bones','mush']),
     x:3+Math.random()*(MAP_W-6),y:3+Math.random()*(MAP_H-7)});
+  for(let i=0;i<RI(8,13);i++) G.decor.push({kind:'rock',variant:RI(0,2),
+    x:3+Math.random()*(MAP_W-6),y:9+Math.random()*(MAP_H-14)});
+  for(let i=0;i<RI(6,8);i++){
+    const kind=chance(0.5)?'barrel':'crate';
+    G.props.push({kind,x:4+Math.random()*(MAP_W-8),y:10+Math.random()*(MAP_H-15),
+      hp:PROP_HP[kind],max:PROP_HP[kind],hit:0,broken:false});
+  }
   for(let i=0;i<4;i++) G.decor.push({kind:'skeleton',variant:i%2,
     x:4+Math.random()*(MAP_W-8),y:5+Math.random()*(MAP_H-9)});
   /* 熊王殿也铺几块地刺，别压住公主笼子和决斗区中心 */
@@ -1509,6 +1896,15 @@ function attack(){
     addDmgNum(e.x,e.y,dmg,crit);
     if(e.hp<=0) killEnemy(e);
   }
+  /* 顺手砸木桶、木箱，或者敲墙里的暗门 */
+  for(const pr of G.props){
+    if(pr.broken) continue;
+    if(dist(P.x,P.y,pr.x,pr.y)>P.atkRange*0.95+0.6) continue;
+    pr.hp-=P.dmg*(pr.kind==='crack'?1.45:1.2);
+    pr.hit=0.16;
+    spawnBits(pr.x,pr.y,pr.kind==='crack'?3:4,pr.kind==='crack'?['#8a8070','#6d6150']:['#c89a5e','#8a6234']);
+    if(pr.hp<=0) breakProp(pr);
+  }
 }
 function killEnemy(e){
   e.dead=true;
@@ -1522,12 +1918,19 @@ function killEnemy(e){
   G.corpses.push({kind:e.kind,x:e.x,y:e.y,rot:R(0,Math.PI*2)});
   if(G.corpses.length>CORPSE_CAP) G.corpses.shift();
   if(P.ls>0&&P.alive){ P.hp=Math.min(P.maxHp,P.hp+P.ls); addDmgNum(e.x,e.y-0.4,'+'+P.ls,false); }
+  if(e.guard){
+    toast('守层 boss「'+e.guard.name+'」倒下了！');
+    P.honey++;
+    spawnBits(e.x,e.y,14,['#ffd27a','#ffe9b8','#ffc860']);
+    grantScroll(pick(SCROLLS));
+  }
   if(e.kind==='boss'){ bossDefeated(); }
   checkClear();
 }
 function checkClear(){
   if(G.clear) return;
-  if(G.ents.every(e=>e.dead)){
+  /* 密室里的怪不算清场条件，不然玩家会被逼着去砸墙 */
+  if(G.ents.every(e=>e.dead||e.secret)){
     G.clear=true;
     if(G.stairs){ G.stairs.active=true; AU.play('clear'); toast('本层敌人清空，楼梯已开启！'); }
   }
@@ -1650,6 +2053,26 @@ function updateShots(dt){
     if(s.kind==='spore'){
       moveE(s,s.vx*dt,s.vy*dt);
       if(dist(s.x,s.y,P.x,P.y)<s.r+0.32) hitPlayer(s.dmg);
+    }else if(s.kind==='arrow'){
+      /* 墙上箭槽射出来的箭：先排队错开发射，之后直线飞，撞墙就碎 */
+      if(s.delay>0){ s.delay-=dt; continue; }
+      const nx=s.x+s.vx*dt, ny=s.y+s.vy*dt;
+      if(wallAt(Math.floor(nx),Math.floor(ny))){
+        spawnBits(s.x,s.y,3,['#c9d2da','#8b939c']); s.life=0;
+      }else{
+        s.x=nx; s.y=ny;
+        if(P.alive&&dist(s.x,s.y,P.x,P.y)<s.r+0.30){ hitPlayer(s.dmg); s.life=0; }
+        else for(const e of G.ents){
+          if(e.dead) continue;
+          if(dist(s.x,s.y,e.x,e.y)<s.r+e.r*0.85){
+            const ed=s.dmg*2.0;
+            e.hp-=ed; e.flash=0.12;
+            addDmgNum(e.x,e.y-0.3,ed,false);
+            if(e.hp<=0) killEnemy(e);
+            s.life=0; break;
+          }
+        }
+      }
     }else if(s.kind==='ring'){
       s.rad+=s.spd*dt;
       if(Math.abs(dist(s.x,s.y,P.x,P.y)-s.rad)<0.55) hitPlayer(s.dmg);
@@ -1740,6 +2163,11 @@ const hud=$('hud'), hpfill=$('hpfill'), hpnum=$('hpnum'), honeynum=$('honeynum')
   rangenum=$('rangenum'),
   coinNum=$('coinNum'), runWood=$('runWood'), floorNum=$('floorNum'), floorName=$('floorName'),
   killNum=$('killNum'), toastsEl=$('toasts'), mini=$('mini'), mctx=mini.getContext('2d');
+const btnStats=$('btnStats'), statPanel=$('statPanel'),
+  svDmg=$('svDmg'), svAspd=$('svAspd'), svCrit=$('svCrit'), svLs=$('svLs'), svRange=$('svRange'),
+  svSpd=$('svSpd'), svHp=$('svHp'), svScroll=$('svScroll'), svCoin=$('svCoin'), svKill=$('svKill'),
+  svHoney=$('svHoney'), svEnts=$('svEnts');
+let statOpen=false;
 let W=0,H=0,DPR=1,last=0,PW=0,PH=0,PS=3;
 function resize(){
   DPR=Math.min(2,window.devicePixelRatio||1);
@@ -1781,7 +2209,7 @@ function updateTraps(dt){
         }
       }
       if(hit){ tr.cd=0.55; spawnBits(tr.x,tr.y,4,['#c9d2da','#8b939c','#ff6a48']); }
-    }else{
+    }else if(tr.kind==='vent'){
       const ph=ventPhase(tr.t); tr.fire=ph.fire; tr.warn=ph.warn;
       if(!ph.fire||tr.cd>0) continue;
       const dmg=11+Math.round((G.floor-1)*2);
@@ -1798,6 +2226,42 @@ function updateTraps(dt){
         }
       }
       if(hit){ tr.cd=0.5; spawnBits(tr.x,tr.y,5,['#ffd27a','#ff7a30','#ffa040']); }
+    }else if(tr.kind==='plate'){
+      tr.fire=Math.max(0,(tr.fire||0)-dt);
+      tr.up=tr.fire>0?1:0;
+      if(tr.cd>0){ tr.press=0; tr.warn=0; continue; }
+      const stepped=(P.alive&&dist(P.x,P.y,tr.x,tr.y)<0.5)||G.ents.some(e=>!e.dead&&dist(e.x,e.y,tr.x,tr.y)<0.5);
+      if(stepped){
+        tr.press=(tr.press||0)+dt; tr.warn=1;
+        if(tr.press>=PLATE_PRESS){
+          tr.press=0; tr.warn=0; tr.cd=PLATE_RESET; tr.fire=0.4;
+          if(tr.mode==='arrow'){
+            for(let i=0;i<3;i++){
+              G.shots.push({kind:'arrow',trap:1,x:tr.x+tr.dx*0.34,y:tr.y+tr.dy*0.34,
+                vx:tr.dx*6.8,vy:tr.dy*6.8,r:0.24,delay:i*0.085,life:1.5,
+                dmg:12+Math.round((G.floor-1)*2),ang:Math.atan2(tr.dy,tr.dx)});
+            }
+            AU.play('hit'); spawnBits(tr.x,tr.y,4,['#ffd27a','#c9d2da']);
+          }else{
+            const dmg=11+Math.round((G.floor-1)*2);
+            if(P.alive&&dist(P.x,P.y,tr.x,tr.y)<0.66) hitPlayer(dmg);
+            for(const e of G.ents){
+              if(e.dead||e.kind==='boss') continue;
+              if(dist(e.x,e.y,tr.x,tr.y)<0.74){
+                const ed=dmg*2.0;
+                e.hp-=ed; e.flash=0.14; e.stun=Math.max(e.stun||0,0.2);
+                addDmgNum(e.x,e.y-0.35,ed,false);
+                if(e.hp<=0) killEnemy(e);
+              }
+            }
+            spawnBits(tr.x,tr.y,7,['#c9d2da','#ff6a48','#8b939c']);
+            G.shake=Math.max(G.shake,2.6);
+          }
+        }
+      }else{
+        tr.press=0;
+        if(tr.cd<=0) tr.warn=0.35;
+      }
     }
   }
 }
@@ -1903,6 +2367,21 @@ function updateHud(){
   floorNum.textContent=G.floor;
   floorName.textContent=FLOOR_NAMES[G.floor-1];
   killNum.textContent=G.run.kills;
+  /* 详细数值面板（收缩状态只在展开时刷新） */
+  if(statOpen){
+    svDmg.textContent=P.dmg;
+    svAspd.textContent=(1/(0.42*P.aspdMul)).toFixed(2);
+    svCrit.textContent=Math.round((P.critCh||0)*100)+'%';
+    svLs.textContent=(P.ls||0)>0?('+'+P.ls):'0';
+    svRange.textContent=P.atkRange.toFixed(2);
+    svSpd.textContent=P.spd.toFixed(2);
+    svHp.textContent=P.maxHp;
+    svScroll.textContent=G.run.scrolls;
+    svCoin.textContent=P.coins;
+    svKill.textContent=G.run.kills;
+    svHoney.textContent=P.honey;
+    svEnts.textContent=G.ents.filter(e=>!e.dead).length;
+  }
   drawMini();
 }
 
@@ -1921,6 +2400,7 @@ function render(){
   drawDecor(ctx);
   drawTraps(ctx);
   drawCorpses(ctx);
+  drawProps(ctx);
   for(const t of G.torches) drawTorch(ctx,t.x*TILE,t.y*TILE,G.time,t.o||'up');
   if(G.stairs) drawStairs(ctx,G.stairs.x*TILE,G.stairs.y*TILE,G.stairs.active);
   for(const c of G.chests) drawChest(ctx,c.x*TILE,c.y*TILE,c.opened,G.time);
@@ -1939,11 +2419,19 @@ function render(){
     if(s.kind==='spore'){
       ctx.fillStyle='#7fd0a8'; ctx.beginPath(); ctx.arc(s.x*TILE,s.y*TILE,s.r*TILE,0,7); ctx.fill();
       ctx.fillStyle='#3f7f5e'; ctx.beginPath(); ctx.arc(s.x*TILE,s.y*TILE,s.r*TILE*0.5,0,7); ctx.fill();
+    }else if(s.kind==='arrow'){
+      if(s.delay>0) continue;
+      ctx.save(); ctx.translate(s.x*TILE,s.y*TILE); ctx.rotate(s.ang);
+      ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(-9,1.2,14,1.6);
+      ctx.strokeStyle='#8b6a3a'; ctx.lineWidth=2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-9,0); ctx.lineTo(6,0); ctx.stroke();
+      ctx.fillStyle='#d8dde4';
+      ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(5,-3); ctx.lineTo(5,3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#e8eef7'; ctx.fillRect(-10,-2.6,3,5.2);
+      ctx.restore();
     }
   }
-  const drawList=G.ents.map(e=>e).sort((a,b)=>a.y-b.y);
-  for(const e of drawList){
-    const px=e.x*TILE, py=e.y*TILE;
+  const drawOne=(e,px,py)=>{
     if(e.kind==='bee') drawBee(ctx,px,py,e.t,e.face);
     else if(e.kind==='boar') drawBoar(ctx,px,py,e.t,e.face,e.flash);
     else if(e.kind==='mush') drawMush(ctx,px,py,e.t,e.flash);
@@ -1951,6 +2439,23 @@ function render(){
     else if(e.kind==='bat') drawBat(ctx,px,py,e.t,e.face);
     else if(e.kind==='bear') drawBear(ctx,px,py,e.t,e.face,e.flash,false);
     else if(e.kind==='boss') drawBear(ctx,px,py,e.t,e.face,e.flash,true);
+  };
+  const drawList=G.ents.map(e=>e).sort((a,b)=>a.y-b.y);
+  for(const e of drawList){
+    const px=e.x*TILE, py=e.y*TILE;
+    if(e.guard){
+      /* 守层 boss：整体放大，脚下一圈血色光环，头顶一顶金冠 */
+      const sc=e.sc||1.5;
+      ctx.save(); ctx.translate(px,py); ctx.scale(sc,sc);
+      const g=ctx.createRadialGradient(0,2,2,0,2,26);
+      g.addColorStop(0,'rgba(255,120,80,0.30)'); g.addColorStop(1,'rgba(255,90,50,0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,2,26,0,7); ctx.fill();
+      ctx.strokeStyle='rgba(255,196,96,0.45)'; ctx.lineWidth=1.4;
+      ctx.beginPath(); ctx.ellipse(0,5,15,6,0,0,7); ctx.stroke();
+      drawOne(e,0,0);
+      ctx.restore();
+      drawCrown(ctx,px,py,sc,e.guard.col);
+    }else drawOne(e,px,py);
   }
   if(P.alive) drawPlayer(ctx,P.x*TILE,P.y*TILE);
   for(const p of parts){
@@ -2008,6 +2513,68 @@ function render(){
   }
   drawPrompt();
   ctx.restore();
+  drawBossBar();
+}
+/* 屏幕层：守层 boss / 熊王的血条，靠近才出现 */
+function drawBossBar(){
+  let target=null;
+  for(const e of G.ents){ if(!e.dead&&(e.guard||e.kind==='boss')){ target=e; break; } }
+  if(!target) return;
+  if(dist(target.x,target.y,P.x,P.y)>20) return;
+  const name=target.guard?target.guard.name:'暗黑熊王';
+  const tag=target.guard?('守层 · '+target.guard.tag):'最终 boss';
+  const w=Math.min(460,Math.max(220,W*0.42)), h=14;
+  const x=(W-w)/2, y=W>720?86:70;
+  ctx.save();
+  ctx.fillStyle='rgba(12,8,4,0.62)'; rr(ctx,x-10,y-26,w+20,50,10); ctx.fill();
+  ctx.strokeStyle='rgba(255,196,96,0.35)'; ctx.lineWidth=1.4; rr(ctx,x-10,y-26,w+20,50,10); ctx.stroke();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='bold 13px "Microsoft YaHei",sans-serif'; ctx.fillStyle='#ffe9b8';
+  ctx.fillText(name+' · '+tag,x+w/2,y-14);
+  ctx.fillStyle='#1a1209'; rr(ctx,x,y,w,h,7); ctx.fill();
+  const p=Math.max(0,Math.min(1,target.hp/target.maxHp));
+  const g=ctx.createLinearGradient(x,y,x+w,y);
+  g.addColorStop(0,'#ff5a3a'); g.addColorStop(1,'#ffb85a');
+  ctx.fillStyle=g; rr(ctx,x+2,y+2,Math.max(5,(w-4)*p),h-4,5); ctx.fill();
+  ctx.strokeStyle='rgba(255,120,70,0.9)'; ctx.lineWidth=1.6; rr(ctx,x,y,w,h,7); ctx.stroke();
+  ctx.font='bold 11px "Microsoft YaHei",sans-serif'; ctx.fillStyle='rgba(255,255,255,0.86)';
+  ctx.fillText(Math.ceil(target.hp)+' / '+Math.round(target.maxHp),x+w/2,y+h/2+0.5);
+  ctx.restore();
+}
+/* 墙只有贴着地板的那一面才画砖面，厚度 10px —— 视觉上是一堵薄墙，墙体内部压成暗影 */
+const THIN=10;
+function drawWallStrip(px,py,w,h,o,hv,seed){
+  const b=0.88+hv*0.20;
+  ctx.fillStyle='rgb('+Math.round(128*b)+','+Math.round(102*b)+','+Math.round(74*b)+')';
+  ctx.fillRect(px,py,w,h);
+  ctx.fillStyle='rgba(255,228,180,0.18)';
+  if(o==='top'||o==='bottom') ctx.fillRect(px,py+(o==='top'?0:h-1.6),w,1.6);
+  else ctx.fillRect(px+(o==='left'?0:w-1.6),py,1.6,h);
+  ctx.fillStyle='rgba(0,0,0,0.42)';
+  if(o==='top') ctx.fillRect(px,py+h-1,w,1);
+  else if(o==='bottom') ctx.fillRect(px,py,w,1);
+  else if(o==='left') ctx.fillRect(px+w-1,py,1,h);
+  else ctx.fillRect(px,py,1,h);
+  ctx.strokeStyle='rgba(0,0,0,0.42)'; ctx.lineWidth=1;
+  if(o==='top'||o==='bottom'){
+    const y=py+Math.round(h*0.5)+0.5;
+    ctx.beginPath(); ctx.moveTo(px,y); ctx.lineTo(px+w,y); ctx.stroke();
+    const off=((seed*11)%3)*4+3;
+    for(let x=px+off;x<px+w;x+=13){
+      ctx.beginPath(); ctx.moveTo(x,py); ctx.lineTo(x,y); ctx.stroke();
+      const x2=x-6.5;
+      if(x2>px){ ctx.beginPath(); ctx.moveTo(x2,y); ctx.lineTo(x2,py+h); ctx.stroke(); }
+    }
+  }else{
+    const x=px+Math.round(w*0.5)+0.5;
+    ctx.beginPath(); ctx.moveTo(x,py); ctx.lineTo(x,py+h); ctx.stroke();
+    const off=((seed*7)%3)*4+3;
+    for(let y=py+off;y<py+h;y+=13){
+      ctx.beginPath(); ctx.moveTo(px,y); ctx.lineTo(x,y); ctx.stroke();
+      const y2=y-6.5;
+      if(y2>py){ ctx.beginPath(); ctx.moveTo(x,y2); ctx.lineTo(px+w,y2); ctx.stroke(); }
+    }
+  }
 }
 function drawTiles(){
   const x0=Math.max(0,Math.floor(G.cam.x/TILE)-1), x1=Math.min(MAP_W-1,Math.ceil((G.cam.x+PW)/TILE)+1);
@@ -2017,38 +2584,33 @@ function drawTiles(){
     if(!G.explored.has(key)){ ctx.fillStyle='#0d0703'; ctx.fillRect(px,py,TILE,TILE); continue; }
     const h=((tx*73856093^ty*19349663)>>>0)%97/97;
     if(G.map[ty][tx]===1){
-      const bw=0.82+h*0.28;
-      ctx.fillStyle='rgb('+Math.round(96*bw)+','+Math.round(74*bw)+','+Math.round(50*bw)+')'; ctx.fillRect(px,py,TILE,TILE);
-      ctx.fillStyle='rgba(255,215,150,0.07)'; ctx.fillRect(px+2,py+2,TILE-4,2);
-      ctx.fillStyle='rgba(0,0,0,0.32)'; ctx.fillRect(px,py+TILE-3,TILE,3);
-      ctx.strokeStyle='rgba(0,0,0,0.70)'; ctx.lineWidth=1.6;
-      ctx.beginPath(); ctx.moveTo(px,py+TILE*0.34); ctx.lineTo(px+TILE,py+TILE*0.34); ctx.stroke();
-      ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=1.4;
-      const soff=((tx*13)%2===0)?3:18;
-      ctx.beginPath(); ctx.moveTo(px+soff,py); ctx.lineTo(px+soff,py+TILE*0.34); ctx.stroke();
-      ctx.fillStyle='rgba(0,0,0,0.14)';
-      if(h>0.45) ctx.fillRect(px+5,py+8,TILE*0.45,2);
-      if(h>0.8){ ctx.fillRect(px+10,py+18,TILE*0.35,2); ctx.fillRect(px+3,py+24,TILE*0.5,2); }
-      ctx.fillStyle='rgba(255,205,150,0.08)';
-      if(h>0.6) ctx.fillRect(px+8,py+13,TILE*0.38,2);
-    }else{
-      const v=0.82+h*0.16;
-      ctx.fillStyle='rgb('+Math.round(64*v)+','+Math.round(59*v)+','+Math.round(52*v)+')';
+      const bw=0.94+h*0.16;
+      /* 地面：压实的泥地，只有一层淡淡的高光和暗斑，不做厚砖 */
+      ctx.fillStyle='rgb('+Math.round(112*bw)+','+Math.round(88*bw)+','+Math.round(60*bw)+')';
       ctx.fillRect(px,py,TILE,TILE);
-      if((tx+ty)%2===0){ ctx.fillStyle='rgba(0,0,0,0.08)'; ctx.fillRect(px,py,TILE,TILE); }
-      ctx.strokeStyle='rgba(0,0,0,0.30)'; ctx.lineWidth=1.2;
-      ctx.beginPath(); ctx.moveTo(px+0.5,py+TILE*0.5); ctx.lineTo(px+TILE,py+TILE*0.5); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(px+TILE*0.5,py+0.5); ctx.lineTo(px+TILE*0.5,py+TILE); ctx.stroke();
-      ctx.fillStyle='rgba(255,225,180,0.06)';
-      if(h>0.35) ctx.fillRect(px+3,py+3,TILE*0.5,2);
-      if(h>0.7){ ctx.fillStyle='rgba(20,14,8,0.4)'; ctx.fillRect(px+6,py+20,TILE*0.3,2); }
-      if(h>0.88){ ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=1.2;
-        ctx.beginPath(); ctx.moveTo(px+6,py+7); ctx.lineTo(px+15,py+16); ctx.lineTo(px+24,py+20); ctx.stroke(); }
-      if(h>0.55){
-        ctx.fillStyle='rgba(215,198,160,0.5)';
-        ctx.fillRect(px+4+((h*97)|0)%14,py+8+((h*97*2)|0)%14,3,2);
-        if(h>0.78){ ctx.fillRect(px+8+((h*97*3)|0)%16,py+14+((h*97*5)|0)%12,2,4); }
-      }
+      ctx.fillStyle='rgba(255,224,170,0.05)'; ctx.fillRect(px,py,TILE,2);
+      ctx.fillStyle='rgba(0,0,0,0.10)'; ctx.fillRect(px,py+TILE-1,TILE,1);
+      if(h>0.30){ ctx.fillStyle='rgba(0,0,0,0.13)'; ctx.fillRect(px+4,py+9+((tx*7)%9),TILE*0.42,2.4); }
+      if(h>0.62){ ctx.fillStyle='rgba(0,0,0,0.10)'; ctx.fillRect(px+12,py+20+((ty*5)%7),TILE*0.3,2); }
+      if(h>0.85){ ctx.fillStyle='rgba(255,214,160,0.07)'; ctx.fillRect(px+6,py+15,TILE*0.34,2); }
+      /* 贴墙处压一条投影，房间显得更大更深 */
+      if(!wallAt(tx,ty-1)){ ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.fillRect(px,py,TILE,4); ctx.fillStyle='rgba(0,0,0,0.10)'; ctx.fillRect(px,py+4,TILE,3); }
+      if(!wallAt(tx,ty+1)){ ctx.fillStyle='rgba(0,0,0,0.14)'; ctx.fillRect(px,py+TILE-4,TILE,4); }
+      if(!wallAt(tx-1,ty)){ ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(px,py,4,TILE); }
+      if(!wallAt(tx+1,ty)){ ctx.fillStyle='rgba(0,0,0,0.16)'; ctx.fillRect(px+TILE-4,py,4,TILE); }
+    }else{
+      const v=0.92+h*0.10;
+      /* 墙体内部：一块压暗的石腔，不做满格厚砖 */
+      ctx.fillStyle='rgb('+Math.round(46*v)+','+Math.round(39*v)+','+Math.round(30*v)+')';
+      ctx.fillRect(px,py,TILE,TILE);
+      ctx.fillStyle='rgba(150,128,98,0.06)';
+      ctx.fillRect(px+((tx*7)%3)*9,py+((ty*5)%3)*9,TILE-14,4);
+      if(h>0.55) ctx.fillRect(px+4+((tx*3)%9),py+17+((ty*7)%7),10,3);
+      /* 只有贴着地板的那一面才铺一条薄砖 */
+      if(!wallAt(tx,ty-1)) drawWallStrip(px,py,TILE,THIN,'top',h,tx*3+ty);
+      if(!wallAt(tx,ty+1)) drawWallStrip(px,py+TILE-THIN,TILE,THIN,'bottom',h,tx*5+ty);
+      if(!wallAt(tx-1,ty)) drawWallStrip(px,py,THIN,TILE,'left',h,tx+ty*3);
+      if(!wallAt(tx+1,ty)) drawWallStrip(px+TILE-THIN,py,THIN,TILE,'right',h,tx+ty*5);
     }
   }
 }
@@ -2125,7 +2687,10 @@ function drawMini(){
   if(G.stairs){ mctx.fillStyle='#7fe8a8'; mctx.fillRect(G.stairs.x*sc-1,G.stairs.y*sc-1,3,3); }
   for(const c of G.chests) if(!c.opened){ mctx.fillStyle='#ffc860'; mctx.fillRect(c.x*sc-1,c.y*sc-1,3,3); }
   if(G.shop){ mctx.fillStyle='#8fb8ff'; mctx.fillRect(G.shop.x*sc-1,G.shop.y*sc-1,3,3); }
-  for(const e of G.ents) if(!e.dead&&e.kind!=='boss'){ mctx.fillStyle='#d94b3d'; mctx.fillRect(e.x*sc-1,e.y*sc-1,2.4,2.4); }
+  for(const e of G.ents) if(!e.dead&&e.kind!=='boss'){
+    if(e.guard){ mctx.fillStyle='#ffd27a'; mctx.fillRect(e.x*sc-1.5,e.y*sc-1.5,3.2,3.2); }
+    else{ mctx.fillStyle=e.secret?'#9b6ad0':'#d94b3d'; mctx.fillRect(e.x*sc-1,e.y*sc-1,2.4,2.4); }
+  }
   mctx.fillStyle='#ffd27a'; mctx.beginPath(); mctx.arc(P.x*sc,P.y*sc,2.2,0,7); mctx.fill();
 }
 
@@ -2372,6 +2937,15 @@ $('btnWinAgain').onclick=()=>{ startRun(); };
 $('btnResume').onclick=()=>{ togglePause(); };
 $('btnQuit').onclick=()=>{ closeModals(); G.paused=false; renderCamp(); showView('camp'); };
 $('btnShopClose').onclick=()=>{ closeModals(); };
+
+/* ===== 数值面板伸缩 ===== */
+btnStats.addEventListener('click',e=>{
+  e.preventDefault();
+  statOpen=!statOpen;
+  statPanel.classList.toggle('on',statOpen);
+  btnStats.classList.toggle('on',statOpen);
+  btnStats.setAttribute('aria-expanded',statOpen?'true':'false');
+});
 
 /* ===== 启动 ===== */
 window.addEventListener('resize',resize);
