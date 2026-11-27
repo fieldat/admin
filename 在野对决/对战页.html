@@ -232,6 +232,7 @@
 
   .fx-art{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0}
   .fx-art img{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     max-width:80vw;max-height:74vh;object-fit:contain;display:block;
     filter:drop-shadow(0 18px 40px rgba(0,0,0,.7)) saturate(1.05) contrast(1.04);
     -webkit-mask-image:radial-gradient(115% 105% at 50% 50%,#000 52%,rgba(0,0,0,.85) 72%,transparent 94%);
@@ -377,7 +378,7 @@
 <div class="fx" id="fx">
   <div class="fx-dark" id="fxDark"></div>
   <div class="fx-vig" id="fxVig"></div>
-  <div class="fx-art" id="fxArt"><img id="fxImg" alt=""></div>
+  <div class="fx-art" id="fxArt"><img id="fxImg" alt=""><img id="fxImg2" alt="" style="display:none"></div>
   <div class="fx-burst" id="fxBurst"></div>
   <div class="fx-ash" id="fxAsh"></div>
   <div class="fx-flash" id="fxFlash"></div>
@@ -397,7 +398,9 @@
   /* ===== 角色表（与选人页一致，外加出招素材） ===== */
   const CHARACTERS = {
     red:  { name:'炎拳', power:'火', avatar:'assets/avatar-red.png',  portrait:'assets/fighter-red.png',
-            atk:'assets/atk-red.webp', fin:'assets/fin-red.webp', tone:'red' },
+            atk:'assets/atk-red.webp', fin:'assets/fin-red.webp', tone:'red',
+            seq:['assets/atk-red-01.webp','assets/atk-red-02.webp','assets/atk-red-03.webp','assets/atk-red-04.webp',
+                 'assets/atk-red-05.webp','assets/atk-red-06.webp','assets/atk-red-07.webp','assets/atk-red-08.webp'] },
     blue: { name:'雷影', power:'电', avatar:'assets/avatar-blue.png', portrait:'assets/fighter-blue.png',
             atk:'assets/atk-blue.webp', fin:'assets/fin-blue.webp', tone:'blue' }
   };
@@ -529,6 +532,44 @@
     }, correct ? 430 : 620);
   }
 
+  /* ===== 逐帧序列播放（普攻真动作） ===== */
+  const SEQ_T = [60,60,70,70,90,120,70,60];            // 每帧毫秒，合计 600ms
+  const SEQ_CUM = SEQ_T.reduce((a,v)=>(a.push((a[a.length-1]||0)+v),a),[]);
+  const IMG = {};
+  let seqRAF = 0, seqTimer = 0;
+
+  function imgOf(src){
+    if(!IMG[src]){ const im = new Image(); im.src = src; IMG[src] = im; }
+    return IMG[src];
+  }
+  function frameAt(t){
+    for(let i=0;i<SEQ_CUM.length;i++){ if(t < SEQ_CUM[i]) return i; }
+    return SEQ_CUM.length-1;
+  }
+  function playSeq(c){
+    if(!c.seq || !c.seq.length) return false;
+    const a = $('fxImg'), b = $('fxImg2');
+    clearTimeout(seqTimer);
+    a.style.display = 'block'; b.style.display = 'none';
+    a.src = c.seq[0];
+    let i = 0;
+    const show = ()=>{
+      const src = c.seq[i];
+      if(i % 2 === 0){
+        b.style.display = 'none'; a.style.display = 'block';
+        if(a.getAttribute('src') !== src) a.src = src;
+      } else {
+        a.style.display = 'none'; b.style.display = 'block';
+        if(b.getAttribute('src') !== src) b.src = src;
+      }
+      const gap = SEQ_T[i];
+      i++;
+      if(i < c.seq.length) seqTimer = setTimeout(show, gap);
+    };
+    show();
+    return true;
+  }
+
   /* ===== 演出层 ===== */
   function flashNow(){ const f=$('fxFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
   function burstNow(){ const b=$('fxBurst'); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); }
@@ -559,7 +600,11 @@
     fx.classList.add('on');
     dark.classList.add('soft','on');
     vig.className = 'fx-vig ' + c.tone;      // 只设色调，不加 on
-    img.src = c.atk;
+    if(!playSeq(c)){
+      $('fxImg2').style.display = 'none';
+      img.style.display = 'block';
+      img.src = c.atk;
+    }
     art.className = 'fx-art ' + (actor === 1 ? 'inL' : 'inR');
 
     setTimeout(()=>{ shakeNow(); flashNow(); burstNow(); }, 330);
@@ -577,6 +622,7 @@
       fx.classList.remove('on');
       dark.classList.remove('soft','on');
       art.className = 'fx-art';
+      clearTimeout(seqTimer); cancelAnimationFrame(seqRAF);
       if(state.hp[target] <= 0){ playFinal(actor, ()=> endGame(actor)); }
       else nextTurn();
     }, 1180);
@@ -592,6 +638,9 @@
     dark.classList.remove('soft');
     dark.classList.add('on');
     vig.className = 'fx-vig on ' + c.tone;
+    clearTimeout(seqTimer); cancelAnimationFrame(seqRAF);
+    $('fxImg2').style.display = 'none';
+    img.style.display = 'block';
     img.src = c.fin;
     art.className = 'fx-art fin';
 
@@ -642,6 +691,9 @@
   /* ===== 初始化 ===== */
   state.q[1] = makeQuestion();
   state.q[2] = makeQuestion();
+  /* 预载出招帧（首帧优先，其余后台加载） */
+  Object.values(CHARACTERS).forEach(c=>{ (c.seq||[]).forEach(imgOf); });
+
   renderPanel(1);
   renderPanel(2);
   renderHp();
