@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>选择人物 · SELECT YOUR FIGHTER</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  html,body{
+    width:100%;height:100%;overflow:hidden;
+    background:#050409;color:#f2efe6;
+    font-family:"Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
+  }
+
+  /* ===== 背景 ===== */
+  .bg{position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(72% 58% at 50% 40%, rgba(255,255,255,.07), transparent 72%),
+      linear-gradient(180deg,#0b0912 0%,#130b18 46%,#050407 100%);
+  }
+  .bg::before{content:"";position:absolute;inset:0;
+    background:
+      repeating-linear-gradient(90deg,rgba(255,255,255,.030) 0 1px,transparent 1px 76px),
+      repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 76px);
+    -webkit-mask-image:radial-gradient(82% 72% at 50% 45%,#000 26%,transparent 86%);
+    mask-image:radial-gradient(82% 72% at 50% 45%,#000 26%,transparent 86%);
+  }
+  .bg::after{content:"";position:absolute;left:0;right:0;top:0;height:34%;
+    background:linear-gradient(180deg,rgba(255,120,40,.10),transparent);
+    clip-path:polygon(0 0,52% 0,48% 100%,0 100%);}
+  .bg .far{position:absolute;left:0;right:0;top:0;height:34%;
+    background:linear-gradient(180deg,rgba(90,60,220,.12),transparent);
+    clip-path:polygon(52% 0,100% 0,100% 100%,48% 100%);}
+
+  /* ===== 框架 ===== */
+  .wrap{position:relative;z-index:2;height:100%;display:flex;flex-direction:column}
+
+  /* ===== 顶栏 ===== */
+  .top{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:10px;padding:2.2vh 3vw 0;flex:0 0 auto;
+  }
+  .side{display:flex;align-items:center;gap:11px;min-width:0}
+  .side.right{flex-direction:row-reverse}
+
+  /* 1P / 2P 简化头像槽（选人入口） */
+  .slot{
+    position:relative;flex:0 0 auto;
+    width:clamp(54px,6.4vh,86px);aspect-ratio:1;
+    border:3px solid rgba(255,255,255,.2);border-radius:12px;
+    background:#15121d;overflow:hidden;cursor:pointer;
+    filter:brightness(.55) saturate(.35);
+    transition:filter .22s,border-color .22s,transform .16s,box-shadow .26s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .slot img{width:100%;height:100%;object-fit:cover;display:block}
+  .slot .q{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:clamp(20px,2.6vh,30px);font-weight:900;color:#514b60;
+  }
+  .slot .tag{
+    position:absolute;left:0;bottom:0;padding:1px 7px;
+    font-size:10px;font-weight:900;letter-spacing:.12em;color:#fff;
+  }
+  .side.left .slot .tag{background:#a3120c}
+  .side.right .slot .tag{background:#3a1f76}
+  .slot.picked{filter:none}
+  .slot.active{transform:scale(1.07)}
+  .side.left .slot.active{border-color:#ff3b30;
+    box-shadow:0 0 0 3px rgba(255,59,48,.35),0 0 28px rgba(255,59,48,.65)}
+  .side.right .slot.active{border-color:#7c9dff;
+    box-shadow:0 0 0 3px rgba(124,157,255,.35),0 0 28px rgba(124,157,255,.65)}
+
+  .pname{
+    font-size:clamp(11px,1.15vw,15px);font-weight:700;letter-spacing:.14em;
+    color:#7d7691;white-space:nowrap;
+  }
+  .side.left.picked .pname{color:#ff6a5a;text-shadow:0 0 16px rgba(255,80,60,.55)}
+  .side.right.picked .pname{color:#9db6ff;text-shadow:0 0 16px rgba(124,157,255,.55)}
+
+  .title{text-align:center;flex:0 0 auto}
+  .title h1{
+    font-size:clamp(17px,2.1vw,29px);font-weight:900;
+    letter-spacing:.26em;text-indent:.26em;color:#fff;
+    text-shadow:0 0 24px rgba(255,120,50,.45),0 3px 0 #480a06;
+  }
+  .title p{
+    margin-top:3px;font-size:clamp(8px,.72vw,10px);
+    letter-spacing:.44em;text-indent:.44em;color:#ffd23f;opacity:.82;
+  }
+
+  /* ===== 舞台：左右虚影 ===== */
+  .stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:flex-end;justify-content:center}
+
+  .ghost{
+    position:absolute;bottom:0;top:0;width:38%;
+    display:flex;align-items:flex-end;justify-content:center;
+    pointer-events:none;overflow:hidden;
+  }
+  .ghost.left{left:0}
+  .ghost.right{right:0}
+
+  .ghost .g-img{
+    max-height:96%;max-width:100%;object-fit:contain;display:block;
+    filter:brightness(.8) saturate(.95) drop-shadow(0 0 34px var(--glow,rgba(0,0,0,.9)));
+    -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.5) 84%,transparent 100%);
+    mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.5) 84%,transparent 100%);
+    transition:opacity .28s ease;
+  }
+  .ghost.right .g-img{transform:scaleX(-1)}
+
+  .ghost .ph{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    margin-bottom:16%;
+    color:rgba(255,255,255,.16);
+  }
+  .ghost .ph b{
+    font-size:clamp(50px,7.4vw,116px);line-height:1;font-weight:900;
+    text-shadow:0 0 40px rgba(255,255,255,.10);
+  }
+  .ghost .ph span{
+    font-size:clamp(10px,1vw,13px);letter-spacing:.3em;
+    color:rgba(255,255,255,.20);
+  }
+
+  /* 中央头像网格 */
+  .gridwrap{
+    position:relative;z-index:3;align-self:center;
+    padding-bottom:2vh;
+  }
+  .grid{
+    display:flex;flex-wrap:wrap;justify-content:center;
+    gap:clamp(8px,1vw,14px);
+    max-width:min(78vw,760px);
+  }
+  .cell{
+    position:relative;flex:0 0 auto;
+    width:clamp(66px,8.4vh,112px);aspect-ratio:1;
+    border:3px solid rgba(255,255,255,.18);border-radius:12px;
+    background:#14111c;overflow:hidden;cursor:pointer;
+    filter:brightness(.58) saturate(.42);
+    transition:transform .15s,filter .22s,border-color .22s,box-shadow .26s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .cell img{width:100%;height:100%;object-fit:cover;display:block}
+  .cell:hover{filter:brightness(.95) saturate(1);transform:translateY(-3px)}
+  .cell.sel1{border-color:#ff3b30;
+    box-shadow:0 0 0 3px rgba(255,59,48,.38),0 0 28px rgba(255,59,48,.6);filter:none}
+  .cell.sel2{border-color:#7c9dff;
+    box-shadow:0 0 0 3px rgba(124,157,255,.38),0 0 26px rgba(124,157,255,.6);filter:none}
+  .cell .mk{
+    position:absolute;left:0;bottom:0;display:none;
+    font-size:9px;font-weight:900;letter-spacing:.08em;color:#fff;
+    padding:1px 5px;
+  }
+  .cell .mk.m1{background:#c0201a}
+  .cell .mk.m2{background:#3a1f76;right:0;left:auto}
+
+  /* 扩展空位 */
+  .cell.empty{
+    display:flex;align-items:center;justify-content:center;
+    border-style:dashed;border-color:rgba(255,255,255,.16);
+    background:rgba(255,255,255,.02);
+    color:rgba(255,255,255,.22);font-size:clamp(20px,2.4vh,30px);font-weight:900;
+    cursor:default;filter:none;
+  }
+  .cell.empty:hover{transform:none;filter:none}
+
+  /* ===== 底部 ===== */
+  .actions{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    gap:16px;padding:1vh 3vw 2.4vh;
+  }
+  .back{
+    padding:11px 20px;border-radius:10px;text-decoration:none;
+    font-size:13px;font-weight:700;letter-spacing:.12em;color:#c8c2d4;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);
+    transition:background .2s;
+  }
+  .back:hover{background:rgba(255,255,255,.15)}
+
+  .go{
+    width:clamp(230px,34vw,400px);aspect-ratio:1400/525;
+    border:none;background:url("assets/btn-frame.webp") center center / contain no-repeat;
+    background-color:transparent;
+    font-family:inherit;font-weight:900;font-size:clamp(14px,1.55vw,19px);
+    letter-spacing:.26em;text-indent:.26em;color:#fff5dd;
+    text-shadow:0 2px 4px rgba(0,0,0,.95),0 0 18px rgba(255,150,60,.7);
+    cursor:pointer;transition:filter .2s,transform .15s;
+    filter:drop-shadow(0 12px 26px rgba(0,0,0,.6));
+  }
+  .go:hover:not(:disabled){transform:scale(1.04);filter:brightness(1.12) drop-shadow(0 14px 32px rgba(255,120,40,.5))}
+  .go:active:not(:disabled){transform:scale(.98)}
+  .go:disabled{
+    cursor:not-allowed;
+    filter:grayscale(.6) brightness(.42) drop-shadow(0 8px 18px rgba(0,0,0,.5));
+    text-shadow:none;
+  }
+
+  .hint{
+    position:fixed;left:50%;bottom:1.1vh;transform:translateX(-50%);
+    font-size:11px;color:#5d5768;letter-spacing:.1em;z-index:2;white-space:nowrap;
+  }
+
+  @media (max-aspect-ratio:3/4){
+    .top{padding:1.6vh 3vw 0}
+    .ghost{width:44%}
+    .grid{max-width:88vw}
+    .go{width:64vw}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg"><div class="far"></div></div>
+
+<div class="wrap">
+
+  <!-- 顶栏：1P 槽 / 标题 / 2P 槽 -->
+  <div class="top">
+    <div class="side left" id="side1">
+      <div class="slot" id="slot1" role="button" tabindex="0" aria-label="1P 选择角色">
+        <img id="slotImg1" alt="" hidden>
+        <div class="q" id="slotQ1">？</div>
+        <div class="tag">1P</div>
+      </div>
+      <div class="pname" id="name1">未选择</div>
+    </div>
+
+    <div class="title">
+      <h1>选择人物</h1>
+      <p>SELECT YOUR FIGHTER</p>
+    </div>
+
+    <div class="side right" id="side2">
+      <div class="slot" id="slot2" role="button" tabindex="0" aria-label="2P 选择角色">
+        <img id="slotImg2" alt="" hidden>
+        <div class="q" id="slotQ2">？</div>
+        <div class="tag">2P</div>
+      </div>
+      <div class="pname" id="name2">未选择</div>
+    </div>
+  </div>
+
+  <!-- 舞台 -->
+  <div class="stage">
+    <div class="ghost left" id="ghost1">
+      <div class="ph"><b>？</b><span>PLAYER 1</span></div>
+    </div>
+    <div class="ghost right" id="ghost2">
+      <div class="ph"><b>？</b><span>PLAYER 2</span></div>
+    </div>
+
+    <div class="gridwrap">
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <!-- 底部 -->
+  <div class="actions">
+    <a class="back" href="login.html">返回</a>
+    <button class="go" id="go" disabled>进入对战</button>
+  </div>
+</div>
+
+<div class="hint">点击 1P / 2P 头像进入选人，再点下方角色头像确认；双方都选完才能开战</div>
+
+<script>
+  /* ===== 角色表：以后加角色，只在这里加一条数据 ===== */
+  const CHARACTERS = [
+    { id:'red',  name:'炎拳', power:'火', color:'#ff3b30',
+      avatar:'assets/avatar-red.png',  portrait:'assets/fighter-red.png'  },
+    { id:'blue', name:'雷影', power:'电', color:'#8b5cf6',
+      avatar:'assets/avatar-blue.png', portrait:'assets/fighter-blue.png' }
+  ];
+
+  const picks = { 1:null, 2:null };
+  let active = 1;
+
+  const $ = id => document.getElementById(id);
+
+  /* 渲染头像列表 */
+  function buildGrid(){
+    const grid = $('grid');
+    grid.innerHTML = '';
+    CHARACTERS.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'cell';
+      el.dataset.id = c.id;
+      el.innerHTML =
+        '<img src="' + c.avatar + '" alt="' + c.name + '">' +
+        '<span class="mk m1">1P</span><span class="mk m2">2P</span>';
+      el.addEventListener('click', ()=> select(c.id));
+      grid.appendChild(el);
+    });
+    // 扩展占位
+    const empty = document.createElement('div');
+    empty.className = 'cell empty';
+    empty.textContent = '＋';
+    empty.title = '后续角色位';
+    grid.appendChild(empty);
+  }
+
+  /* 选中角色 */
+  function select(id){
+    picks[active] = id;
+    // 选完自动把焦点交给还没选的玩家
+    if(!picks[active === 1 ? 2 : 1]) active = active === 1 ? 2 : 1;
+    render();
+  }
+
+  function setActive(p){
+    active = p;
+    render();
+  }
+
+  /* 渲染全部状态 */
+  function render(){
+    [1,2].forEach(p=>{
+      const c = CHARACTERS.find(x=>x.id === picks[p]);
+      const slot = $('slot'+p), img = $('slotImg'+p), q = $('slotQ'+p);
+      const side = $('side'+p), nameEl = $('name'+p);
+      const ghost = $('ghost'+p);
+
+      // 顶部简化头像
+      slot.classList.toggle('active', active === p);
+      slot.classList.toggle('picked', !!c);
+      if(c){
+        img.src = c.avatar; img.alt = c.name; img.hidden = false; q.hidden = true;
+        nameEl.textContent = c.name + ' · ' + c.power;
+        side.classList.add('picked');
+      }else{
+        img.hidden = true; q.hidden = false;
+        nameEl.textContent = '未选择';
+        side.classList.remove('picked');
+      }
+
+      // 半屏虚影
+      if(c){
+        ghost.style.setProperty('--glow', c.color);
+        ghost.innerHTML = '<img class="g-img" src="' + c.portrait + '" alt="' + c.name + '">';
+      }else{
+        ghost.innerHTML =
+          '<div class="ph"><b>？</b><span>PLAYER ' + p + '</span></div>';
+      }
+    });
+
+    // 头像列表标记
+    document.querySelectorAll('.cell[data-id]').forEach(el=>{
+      const id = el.dataset.id;
+      el.classList.toggle('sel1', picks[1] === id);
+      el.classList.toggle('sel2', picks[2] === id);
+      const m1 = el.querySelector('.mk.m1'), m2 = el.querySelector('.mk.m2');
+      m1.style.display = picks[1] === id ? 'block' : 'none';
+      m2.style.display = picks[2] === id ? 'block' : 'none';
+    });
+
+    $('go').disabled = !(picks[1] && picks[2]);
+  }
+
+  /* 交互绑定 */
+  $('slot1').addEventListener('click', ()=> setActive(1));
+  $('slot2').addEventListener('click', ()=> setActive(2));
+  $('slot1').addEventListener('keydown', e=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setActive(1); }});
+  $('slot2').addEventListener('keydown', e=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setActive(2); }});
+
+  $('go').addEventListener('click', ()=>{
+    const c1 = CHARACTERS.find(x=>x.id === picks[1]);
+    const c2 = CHARACTERS.find(x=>x.id === picks[2]);
+    location.href = 'battle.html'
+      + '?p1=' + encodeURIComponent(c1.id)
+      + '&p2=' + encodeURIComponent(c2.id);
+  });
+
+  buildGrid();
+  render();
+</script>
+
+</body>
+</html>
