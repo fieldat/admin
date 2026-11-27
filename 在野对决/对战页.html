@@ -256,6 +256,19 @@
   }
 
   .fx-art.fin{animation:finIn 2.4s cubic-bezier(.25,.6,.2,1) forwards}
+  .fx-art.finLong{animation:finLong 4.3s cubic-bezier(.25,.6,.2,1) forwards}
+  @keyframes finLong{
+    0%{opacity:0;transform:scale(1.22)}
+    7%{opacity:1;transform:scale(1.14)}
+    80%{opacity:1;transform:scale(1.03)}
+    100%{opacity:0;transform:scale(1)}
+  }
+  #fxVideo{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    max-width:80vw;max-height:74vh;display:none;background:#000;
+    -webkit-mask-image:radial-gradient(120% 110% at 50% 50%,#000 58%,rgba(0,0,0,.86) 78%,transparent 96%);
+    mask-image:radial-gradient(120% 110% at 50% 50%,#000 58%,rgba(0,0,0,.86) 78%,transparent 96%);
+  }
   @keyframes finIn{
     0%{opacity:0;transform:scale(1.26)}
     14%{opacity:1;transform:scale(1.14)}
@@ -378,7 +391,7 @@
 <div class="fx" id="fx">
   <div class="fx-dark" id="fxDark"></div>
   <div class="fx-vig" id="fxVig"></div>
-  <div class="fx-art" id="fxArt"><img id="fxImg" alt=""><img id="fxImg2" alt="" style="display:none"></div>
+  <div class="fx-art" id="fxArt"><img id="fxImg" alt=""><img id="fxImg2" alt="" style="display:none"><video id="fxVideo" playsinline preload="auto" webkit-playsinline></video></div>
   <div class="fx-burst" id="fxBurst"></div>
   <div class="fx-ash" id="fxAsh"></div>
   <div class="fx-flash" id="fxFlash"></div>
@@ -400,9 +413,12 @@
     red:  { name:'炎拳', power:'火', avatar:'assets/avatar-red.png',  portrait:'assets/fighter-red.png',
             atk:'assets/atk-red.webp', fin:'assets/fin-red.webp', tone:'red',
             seq:['assets/atk-red-01.webp','assets/atk-red-02.webp','assets/atk-red-03.webp','assets/atk-red-04.webp',
-                 'assets/atk-red-05.webp','assets/atk-red-06.webp','assets/atk-red-07.webp','assets/atk-red-08.webp'] },
+                 'assets/atk-red-05.webp','assets/atk-red-06.webp','assets/atk-red-07.webp','assets/atk-red-08.webp'],
+            finVid:'assets/fin-red.mp4' },
     blue: { name:'雷影', power:'电', avatar:'assets/avatar-blue.png', portrait:'assets/fighter-blue.png',
-            atk:'assets/atk-blue.webp', fin:'assets/fin-blue.webp', tone:'blue' }
+            atk:'assets/atk-blue.webp', fin:'assets/fin-blue.webp', tone:'blue',
+            seq:['assets/atk-blue-01.webp','assets/atk-blue-02.webp','assets/atk-blue-03.webp','assets/atk-blue-04.webp',
+                 'assets/atk-blue-05.webp','assets/atk-blue-06.webp','assets/atk-blue-07.webp','assets/atk-blue-08.webp'] }
   };
 
   const qs = new URLSearchParams(location.search);
@@ -600,6 +616,8 @@
     fx.classList.add('on');
     dark.classList.add('soft','on');
     vig.className = 'fx-vig ' + c.tone;      // 只设色调，不加 on
+    $('fxVideo').style.display = 'none';
+    $('fxVideo').pause();
     if(!playSeq(c)){
       $('fxImg2').style.display = 'none';
       img.style.display = 'block';
@@ -640,9 +658,25 @@
     vig.className = 'fx-vig on ' + c.tone;
     clearTimeout(seqTimer); cancelAnimationFrame(seqRAF);
     $('fxImg2').style.display = 'none';
-    img.style.display = 'block';
-    img.src = c.fin;
-    art.className = 'fx-art fin';
+
+    const vid = $('fxVideo');
+    let total = 2480;
+    if(c.finVid){
+      img.style.display = 'none';
+      vid.style.display = 'block';
+      if(vid.getAttribute('src') !== c.finVid) vid.src = c.finVid;
+      try{ vid.currentTime = 0; }catch(e){}
+      vid.muted = false;
+      const pr = vid.play();
+      if(pr && pr.catch) pr.catch(()=>{ vid.muted = true; vid.play().catch(()=>{}); });
+      art.className = 'fx-art finLong';
+      total = 4300;
+    } else {
+      vid.style.display = 'none';
+      img.style.display = 'block';
+      img.src = c.fin;
+      art.className = 'fx-art fin';
+    }
 
     ashBurst();
     setTimeout(()=>{ flashNow(); shakeNow(); ashBurst(); }, 420);
@@ -651,15 +685,17 @@
       const el=$('pl'+loser); el.classList.add('dead');
     }, 1250);
     setTimeout(()=>{ flashNow(); }, 2100);
+    setTimeout(()=>{ flashNow(); ashBurst(); }, 3400);
 
     setTimeout(()=>{
+      vid.pause();
       fx.classList.remove('on');
       dark.classList.remove('on');
       vig.classList.remove('on');
       art.className = 'fx-art';
       $('fxAsh').innerHTML='';
       done();
-    }, 2480);
+    }, total);
   }
 
   /* ===== 换回合 ===== */
@@ -691,8 +727,11 @@
   /* ===== 初始化 ===== */
   state.q[1] = makeQuestion();
   state.q[2] = makeQuestion();
-  /* 预载出招帧（首帧优先，其余后台加载） */
-  Object.values(CHARACTERS).forEach(c=>{ (c.seq||[]).forEach(imgOf); });
+  /* 预载出招帧与终结视频（首帧优先，其余后台加载） */
+  Object.values(CHARACTERS).forEach(c=>{
+    (c.seq||[]).forEach(imgOf);
+    if(c.finVid){ const v = document.createElement('video'); v.src = c.finVid; v.preload = 'auto'; v.muted = true; }
+  });
 
   renderPanel(1);
   renderPanel(2);
