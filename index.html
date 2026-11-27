@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>在野 · 小工具集</title>
+<title>在野 · 时光</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2322273A'/%3E%3Ccircle cx='32' cy='32' r='16' fill='none' stroke='%237C8CFF' stroke-width='5'/%3E%3Ccircle cx='32' cy='16' r='4' fill='%23FFB454'/%3E%3C/svg%3E">
 <style>
 /* ===== 基础 ===== */
@@ -63,13 +63,14 @@ main {
    后续新页面：在此 <div class="grid"> 内再追加一张 <a class="card"> 即可 */
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 22px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  align-items: stretch;
 }
 .card {
   position: relative;
   display: flex; flex-direction: column;
-  padding: 26px 24px 22px;
+  padding: 22px 20px 20px;
   border-radius: 18px;
   text-decoration: none; color: inherit;
   background: rgba(255,255,255,.045);
@@ -89,17 +90,18 @@ main {
   box-shadow: 0 14px 34px rgba(0,0,0,.35), 0 0 0 1px var(--line) inset;
 }
 .card .icon {
-  width: 52px; height: 52px; border-radius: 14px;
+  width: 46px; height: 46px; border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   background: var(--tile);
   box-shadow: 0 6px 18px rgba(0,0,0,.28);
 }
-.card .icon svg { width: 28px; height: 28px; }
-.card h2 { font-size: 21px; font-weight: 700; letter-spacing: .5px; }
-.card .desc { margin-top: 6px; font-size: 13.5px; color: rgba(237,240,247,.6); }
+.card .icon svg { width: 24px; height: 24px; }
+.card h2 { font-size: 18px; font-weight: 700; letter-spacing: .5px; }
+.card .desc { margin-top: 6px; font-size: 12.8px; line-height: 1.55; color: rgba(237,240,247,.62); }
+.card h2, .card .desc { position: relative; z-index: 1; }
 .card .go {
-  margin-top: 18px;
+  margin-top: auto; padding-top: 18px;
   font-size: 13px; font-weight: 600; letter-spacing: 3px;
   color: var(--acc);
   display: flex; align-items: center; gap: 6px;
@@ -144,6 +146,7 @@ main {
 .grid { animation: rise .55s ease .12s both; }
 
 /* ===== 移动端 ===== */
+@media (max-width: 940px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 640px) {
   main { padding: 34px 18px 28px; }
   .hero h1 { font-size: 28px; }
@@ -162,13 +165,13 @@ main {
 
 <header class="top">
   <div class="mark">在野</div>
-  <span class="name">在野 · 小工具集</span>
+  <span class="name">在野 · 时光</span>
 </header>
 
 <main>
   <div class="hero">
-    <h1>在野小工具</h1>
-    <p>一个小工具，或者一场地牢冒险</p>
+    <h1>在野时光</h1>
+    <p>课堂里的小工具，和一点好玩的冒险</p>
   </div>
 
   <!-- ===== 卡片容器：新页面追加 <a class="card ..."> 即可 ===== -->
@@ -235,7 +238,7 @@ main {
   </div>
 </main>
 
-<footer class="foot">在野 · 小工具集</footer>
+<footer class="foot">在野 · 时光</footer>
 
 </body>
 </html>
