@@ -113,6 +113,13 @@ main {
 .card.meet     { --glow: rgba(124,140,255,.5);  --line: rgba(124,140,255,.55); --acc: #9FADFF; --tile: linear-gradient(135deg, rgba(124,140,255,.28), rgba(232,137,12,.18)); }
 
 /* ===== 游戏大卡（宣传图 + 文案横排） ===== */
+.card.mini { padding: 0; }
+.card.mini .thumb { aspect-ratio: 16 / 9; overflow: hidden; position: relative; }
+.card.mini .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+.card.mini:hover .thumb img { transform: scale(1.05); }
+.card.mini .mini-body { padding: 18px 18px 16px; display: flex; flex-direction: column; position: relative; z-index: 1; }
+.card.mini .icon { margin-bottom: 12px; }
+
 .card.game {
   grid-column: 1 / -1;
   display: grid;
@@ -191,48 +198,57 @@ main {
       </div>
     </a>
 
-    <a class="card roulette" href="lunpan.html">
-      <div class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#FF9DC7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 3v4.2M12 16.8V21M3 12h4.2M16.8 12H21M5.6 5.6l3 3M15.4 15.4l3 3M18.4 5.6l-3 3M8.6 15.4l-3 3"/>
-        </svg>
+    <a class="card mini roulette" href="lunpan.html">
+      <div class="thumb"><img src="assets/cover-lunpan.jpg" alt="在野轮盘封面" width="1200" height="675" loading="lazy"></div>
+      <div class="mini-body">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#FF9DC7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 3v4.2M12 16.8V21M3 12h4.2M16.8 12H21M5.6 5.6l3 3M15.4 15.4l3 3M18.4 5.6l-3 3M8.6 15.4l-3 3"/>
+          </svg>
+        </div>
+        <h2>在野轮盘</h2>
+        <p class="desc">六区抽奖：抽小组、抽号码，动画飞入结果框，随时重置再来。</p>
+        <span class="go">进入工具
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
       </div>
-      <h2>在野轮盘</h2>
-      <p class="desc">六区抽奖：抽小组、抽号码，动画飞入结果框，随时重置再来。</p>
-      <span class="go">进入工具
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </span>
     </a>
 
-    <a class="card meet" href="xiangyu.html">
-      <div class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#AAB6FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2.5" y="8" width="6.5" height="4.5" rx="1.5"/>
-          <rect x="15" y="8" width="6.5" height="4.5" rx="1.5"/>
-          <circle cx="6" cy="15.5" r="1.8"/>
-          <circle cx="18" cy="15.5" r="1.8"/>
-          <path d="M6.5 6.5h11"/>
-        </svg>
+    <a class="card mini meet" href="xiangyu.html">
+      <div class="thumb"><img src="assets/cover-xiangyu.jpg" alt="在野相遇封面" width="1200" height="675" loading="lazy"></div>
+      <div class="mini-body">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#AAB6FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="8" width="6.5" height="4.5" rx="1.5"/>
+            <rect x="15" y="8" width="6.5" height="4.5" rx="1.5"/>
+            <circle cx="6" cy="15.5" r="1.8"/>
+            <circle cx="18" cy="15.5" r="1.8"/>
+            <path d="M6.5 6.5h11"/>
+          </svg>
+        </div>
+        <h2>在野相遇</h2>
+        <p class="desc">两车相遇模拟：匀变速 / 匀速追及与相向，实时 x-t、v-t 图像联动。</p>
+        <span class="go">进入工具
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
       </div>
-      <h2>在野相遇</h2>
-      <p class="desc">两车相遇模拟：匀变速 / 匀速追及与相向，实时 x-t、v-t 图像联动。</p>
-      <span class="go">进入工具
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </span>
     </a>
 
-    <a class="card" href="rouge.html" style="--glow:rgba(255,178,84,.35);--line:rgba(255,178,84,.4);--acc:#FFC860;--tile:linear-gradient(135deg,rgba(255,178,84,.24),rgba(232,137,12,.16));">
-      <div class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#FFC860" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/>
-        </svg>
+    <a class="card mini" href="rouge.html" style="--glow:rgba(255,178,84,.35);--line:rgba(255,178,84,.4);--acc:#FFC860;--tile:linear-gradient(135deg,rgba(255,178,84,.24),rgba(232,137,12,.16));">
+      <div class="thumb"><img src="assets/cover-rouge.jpg" alt="地牢闯关封面" width="1200" height="675" loading="lazy"></div>
+      <div class="mini-body">
+        <div class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#FFC860" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/>
+          </svg>
+        </div>
+        <h2>光头强勇救吉吉公主</h2>
+        <p class="desc">熊王掳走吉吉公主，五层随机地牢闯关：回旋斩、宝箱、杂货铺，回营地永久变强。</p>
+        <span class="go">开始闯关
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
       </div>
-      <h2>光头强勇救吉吉公主</h2>
-      <p class="desc">熊王掳走吉吉公主，五层随机地牢闯关：回旋斩、宝箱、杂货铺，回营地永久变强。</p>
-      <span class="go">开始闯关
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </span>
     </a>
 
   </div>
