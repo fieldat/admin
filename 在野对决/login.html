@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>单词拳皇 · WORD FIGHTER KING</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
 
   html,body{
-    width:100%;height:100%;overflow:hidden;
+    width:100%;height:100vh;height:100dvh;overflow:hidden;
     background:#06050a;
   }
 
@@ -79,6 +79,10 @@
   }
   @media (max-height:560px){
     .start{bottom:5vh;width:min(52vw,520px)}
+  }
+  /* 手机横屏（矮宽屏） */
+  @media (max-height:480px) and (orientation:landscape){
+    .start{bottom:4vh;width:min(50vw,460px);font-size:clamp(18px,2.6vw,30px);letter-spacing:.22em;text-indent:.22em}
   }
 </style>
 </head>
