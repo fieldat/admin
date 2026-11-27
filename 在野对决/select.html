@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>选择人物 · SELECT YOUR FIGHTER</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
 
   html,body{
-    width:100%;height:100%;overflow:hidden;
+    width:100%;height:100vh;height:100dvh;overflow:hidden;
     background:#050409;color:#f2efe6;
     font-family:"Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif;
   }
@@ -208,6 +208,21 @@
     .ghost{width:44%}
     .grid{max-width:88vw}
     .go{width:64vw}
+    .hint{display:none}
+  }
+
+  /* 手机横屏（矮宽屏）：压缩顶栏、头像格与按钮高度 */
+  @media (max-height:480px) and (orientation:landscape){
+    .top{padding:.8vh 3vw 0;gap:8px}
+    .slot{width:clamp(38px,8vh,60px)}
+    .title h1{font-size:clamp(15px,2vw,22px)}
+    .title p{margin-top:1px}
+    .ghost .ph b{font-size:clamp(32px,6vw,70px)}
+    .gridwrap{padding-bottom:1vh}
+    .grid{gap:clamp(7px,1vw,12px)}
+    .cell{width:clamp(54px,9vw,92px)}
+    .actions{padding:.5vh 3vw 1.2vh;gap:12px}
+    .go{width:clamp(190px,30vw,320px)}
     .hint{display:none}
   }
 </style>
