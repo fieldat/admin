@@ -14,7 +14,14 @@
   }
 
   /* ===== 背景：地下铁笼拳场 ===== */
-  .bg{position:fixed;inset:0;z-index:0;background:#050409 url("assets/bg-arena.jpg") center center / cover no-repeat}
+  .bg{position:fixed;inset:0;z-index:0;background:#050409;overflow:hidden}
+  /* 背景图单独一层，便于整体上移，让地面线与人物落脚点对齐 */
+  .bg-img{
+    position:absolute;inset:0;
+    background:url("assets/bg-arena.jpg") center center / cover no-repeat;
+    transform:translateY(var(--bg-y,-3.4%)) scale(1.09);
+    transform-origin:50% 42%;
+  }
   .bg::before{content:"";position:absolute;inset:0;
     background:
       radial-gradient(62% 54% at 50% 48%, rgba(0,0,0,0) 0%, rgba(5,4,9,.5) 82%),
@@ -352,7 +359,7 @@
 </head>
 <body>
 
-<div class="bg"></div>
+<div class="bg"><div class="bg-img"></div></div>
 
 <div class="wrap">
 
