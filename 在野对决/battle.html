@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -106,13 +106,44 @@
   }
   .player.p1{left:8%}
   .player.p2{right:8%}
+  .player{z-index:2}
+  .darken{position:absolute;inset:0;z-index:1;background:rgba(5,3,10,.62);opacity:0;transition:opacity .28s ease;pointer-events:none}
+  .darken.on{opacity:1}
+  #ashLayer{z-index:6}
+  #flashL{position:fixed;inset:0;z-index:7;pointer-events:none;opacity:0;background:#fff}
+  @keyframes stageFlash{0%{opacity:0}14%{opacity:.5}40%{opacity:.18}100%{opacity:0}}
+  #flashL.go{animation:stageFlash .32s ease-out}
   .player img{
     max-height:100%;max-width:100%;object-fit:contain;display:block;
     filter:drop-shadow(0 8px 20px rgba(0,0,0,.6));
   }
   .player.p2 img{transform:scaleX(-1)}
+  /* 原地出招的透明逐帧贴图，叠在站立像之上 */
+  .player .atk{
+    position:absolute;bottom:0;left:50%;width:auto;height:var(--atk-h,104%);
+    max-width:none;max-height:none;opacity:0;z-index:2;pointer-events:none;
+    filter:drop-shadow(0 10px 26px rgba(0,0,0,.5));
+    transition:opacity .12s linear;
+  }
+  .player.p1 .atk{transform:translateX(var(--ax,-43%))}
+  .player.p2 .atk{transform:translateX(var(--ax2,-57%)) scaleX(-1)}
+  .player.dash1{animation:dashIn1 .46s ease-out forwards}
+  .player.dash2{animation:dashIn2 .46s ease-out forwards}
+  @keyframes dashIn1{to{transform:translateX(26vw)}}
+  @keyframes dashIn2{to{transform:translateX(-26vw)}}
+
+  /* 命中爆点 */
+  .impact{
+    position:absolute;width:20vmin;height:20vmin;margin:-10vmin 0 0 -10vmin;border-radius:50%;
+    pointer-events:none;z-index:5;
+    background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(255,190,110,.6) 30%,rgba(255,90,40,0) 68%);
+    animation:impactPop .52s ease-out forwards;
+  }
+  .impact.blue{background:radial-gradient(circle,rgba(245,235,255,.95) 0%,rgba(178,148,255,.6) 30%,rgba(120,80,240,0) 68%)}
+  .impact.big{width:36vmin;height:36vmin;margin:-18vmin 0 0 -18vmin}
+  @keyframes impactPop{0%{opacity:.95;transform:scale(.28)}100%{opacity:0;transform:scale(2.3)}}
   .player.dim{filter:brightness(.55) saturate(.35)}
-  .player.dead{opacity:.26;filter:grayscale(1) brightness(.6) blur(2px)}
+  .player.dead{opacity:.62;filter:grayscale(.6) brightness(.78);transform-origin:50% 100%}
   .player.hit{animation:hitShake .35s ease}
   .player.lunge1{animation:lunge1 .42s ease}
   .player.lunge2{animation:lunge2 .42s ease}
@@ -392,12 +423,21 @@
 
   <!-- 舞台 -->
   <section class="stage" id="stage">
+    <div class="darken" id="darken"></div>
     <div class="p-shadow s1"></div>
     <div class="p-shadow s2"></div>
-    <div class="player p1" id="pl1"><img id="art1" src="assets/fighter-red.png" alt="炎拳"></div>
-    <div class="player p2" id="pl2"><img id="art2" src="assets/fighter-blue.png" alt="雷影"></div>
+    <div class="player p1" id="pl1">
+      <img id="art1" src="assets/fighter-red.png" alt="炎拳">
+      <img class="atk" id="atk1" alt="" style="--atk-h:104%;--ax:-43%">
+    </div>
+    <div class="player p2" id="pl2">
+      <img id="art2" src="assets/fighter-blue.png" alt="雷影">
+      <img class="atk" id="atk2" alt="" style="--atk-h:99%;--ax2:-57%">
+    </div>
     <div class="turn-tip" id="turnTip">1P 回合</div>
+    <div class="fx-ash" id="ashLayer"></div>
   </section>
+  <div class="fx-flash" id="flashL"></div>
 
   <!-- 底部：两个独立作答区 -->
   <section class="arena">
@@ -422,6 +462,9 @@
     </div>
   </section>
 </div>
+
+<!-- 终结技原声 -->
+<audio id="finSnd" src="assets/fin-red.mp4" preload="auto"></audio>
 
 <!-- 出招演出层 -->
 <div class="fx" id="fx">
@@ -584,46 +627,70 @@
     }, correct ? 430 : 620);
   }
 
-  /* ===== 逐帧序列播放（普攻真动作） ===== */
-  const SEQ_T = [60,60,70,70,90,120,70,60];            // 每帧毫秒，合计 600ms
-  const SEQ_CUM = SEQ_T.reduce((a,v)=>(a.push((a[a.length-1]||0)+v),a),[]);
+  /* ===== 台上原位逐帧出招（不再开全屏插画） ===== */
+  const SEQ_T  = [70,70,80,80,110,130,80,70];   // 普攻 8 帧 ≈ 690ms
+  const FIN_T  = [110,110,120,120,140,190,150,140]; // 终结 8 帧 ≈ 1080ms
   const IMG = {};
-  let seqRAF = 0, seqTimer = 0;
+  let seqTimer = 0;
 
   function imgOf(src){
     if(!IMG[src]){ const im = new Image(); im.src = src; IMG[src] = im; }
     return IMG[src];
   }
-  function frameAt(t){
-    for(let i=0;i<SEQ_CUM.length;i++){ if(t < SEQ_CUM[i]) return i; }
-    return SEQ_CUM.length-1;
+
+  /* 出招帧盖住站立像，收招后还原 */
+  function showAtk(p, on){
+    const atk = $('atk'+p), stand = $('art'+p);
+    atk.style.opacity = on ? '1' : '0';
+    stand.style.opacity = on ? '0' : '1';
   }
-  function playSeq(c){
-    if(!c.seq || !c.seq.length) return false;
-    const a = $('fxImg'), b = $('fxImg2');
+
+  /* 在台上人物身上逐帧播放，结束回调 done */
+  function playStageSeq(p, c, times, done){
+    const atk = $('atk'+p);
     clearTimeout(seqTimer);
-    a.style.display = 'block'; b.style.display = 'none';
-    a.src = c.seq[0];
+    showAtk(p, true);
+    if(!c.seq || !c.seq.length){ if(done) done(); return; }
     let i = 0;
-    const show = ()=>{
-      const src = c.seq[i];
-      if(i % 2 === 0){
-        b.style.display = 'none'; a.style.display = 'block';
-        if(a.getAttribute('src') !== src) a.src = src;
-      } else {
-        a.style.display = 'none'; b.style.display = 'block';
-        if(b.getAttribute('src') !== src) b.src = src;
-      }
-      const gap = SEQ_T[i];
+    const step = ()=>{
+      atk.src = c.seq[i];
+      const gap = times[i] || 90;
       i++;
-      if(i < c.seq.length) seqTimer = setTimeout(show, gap);
+      if(i < c.seq.length) setTimeout(step, gap);
+      else { seqTimer = setTimeout(()=>{ if(done) done(); }, gap); }
     };
-    show();
-    return true;
+    step();
+  }
+
+  /* 冲到对手身侧，拳脚才够得着 */
+  function dashTo(actor, target, overlap){
+    const pEl = $('pl'+actor);
+    const a = pEl.getBoundingClientRect(), b = $('pl'+target).getBoundingClientRect();
+    const dx = actor === 1 ? (b.left - a.right + (overlap||36)) : (b.right - a.left - (overlap||36));
+    pEl.style.transition = 'transform .22s cubic-bezier(.2,.8,.3,1)';
+    pEl.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+  }
+  function dashBack(actor){
+    const pEl = $('pl'+actor);
+    pEl.style.transition = 'transform .26s ease';
+    pEl.style.transform = '';
+  }
+
+  /* 命中爆点：落在对手身上 */
+  function hitFx(target, tone, big){
+    const st = $('stage').getBoundingClientRect();
+    const b = $('pl'+target).getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'impact' + (tone === 'blue' ? ' blue' : '') + (big ? ' big' : '');
+    el.style.left = Math.round(b.left + b.width*0.5 - st.left) + 'px';
+    el.style.top  = Math.round(b.top + b.height*(big ? 0.4 : 0.44) - st.top) + 'px';
+    $('stage').appendChild(el);
+    setTimeout(()=> el.remove(), 720);
+    shakeNow(); flashNow();
   }
 
   /* ===== 演出层 ===== */
-  function flashNow(){ const f=$('fxFlash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  function flashNow(){ const f=$('flashL'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
   function burstNow(){ const b=$('fxBurst'); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); }
   function shakeNow(){
     const w=document.querySelector('.wrap');
@@ -631,7 +698,7 @@
     setTimeout(()=> w.classList.remove('shake'), 540);
   }
   function ashBurst(){
-    const box=$('fxAsh'); box.innerHTML='';
+    const box=$('ashLayer'); box.innerHTML='';
     for(let i=0;i<24;i++){
       const s=document.createElement('i');
       const left = 34 + Math.random()*46;
@@ -645,93 +712,68 @@
     }
   }
 
-  /* 普攻：图从出招方一侧扫入，命中闪白 + 爆点 + 震屏 */
+  /* 普攻：台上人物冲到对手身前出招，拳脚落在对方身上 */
   function playHit(actor, target){
     const c = pick[actor];
-    const fx=$('fx'), art=$('fxArt'), img=$('fxImg'), vig=$('fxVig'), dark=$('fxDark');
-    fx.classList.add('on');
-    dark.classList.add('soft','on');
-    vig.className = 'fx-vig ' + c.tone;      // 只设色调，不加 on
-    $('fxVideo').style.display = 'none';
-    $('fxVideo').pause();
-    if(!playSeq(c)){
-      $('fxImg2').style.display = 'none';
-      img.style.display = 'block';
-      img.src = c.atk;
-    }
-    art.className = 'fx-art ' + (actor === 1 ? 'inL' : 'inR');
-
-    setTimeout(()=>{ shakeNow(); flashNow(); burstNow(); }, 330);
-
+    const foeEl = $('pl'+target);
+    dashTo(actor, target, 40);
+    playStageSeq(actor, c, SEQ_T, null);
+    setTimeout(()=> hitFx(target, c.tone, false), 360);
     setTimeout(()=>{
       state.hp[target] = Math.max(0, state.hp[target] - DAMAGE);
       renderHp();
-      const foeEl = $('pl'+target);
       foeEl.classList.add('hit');
       setTimeout(()=> foeEl.classList.remove('hit'), 380);
       floatDamage(target, '-' + DAMAGE);
-    }, 430);
-
+    }, 420);
     setTimeout(()=>{
-      fx.classList.remove('on');
-      dark.classList.remove('soft','on');
-      art.className = 'fx-art';
-      clearTimeout(seqTimer); cancelAnimationFrame(seqRAF);
-      if(state.hp[target] <= 0){ playFinal(actor, ()=> endGame(actor)); }
-      else nextTurn();
-    }, 1180);
+      dashBack(actor);
+      showAtk(actor, false);
+      if(state.hp[target] <= 0){ setTimeout(()=> playFinal(actor, ()=> endGame(actor)), 240); }
+      else setTimeout(nextTurn, 200);
+    }, 920);
   }
 
-  /* 终结技：黑场 + 定格慢推 + 灰烬 + 双段震屏 */
+  /* 终结技：冲到对手身上，逐帧出招 → 定格终结姿态 → 双段爆点，全场压暗 */
   function playFinal(actor, done){
     const c = pick[actor];
-    const fx=$('fx'), art=$('fxArt'), img=$('fxImg'), dark=$('fxDark'), vig=$('fxVig');
     const loser = other(actor);
+    const loserEl = $('pl'+loser);
 
-    fx.classList.add('on');
-    dark.classList.remove('soft');
-    dark.classList.add('on');
-    vig.className = 'fx-vig on ' + c.tone;
-    clearTimeout(seqTimer); cancelAnimationFrame(seqRAF);
-    $('fxImg2').style.display = 'none';
+    $('darken').classList.add('on');
+    dashTo(actor, loser, 12);
 
-    const vid = $('fxVideo');
-    let total = 2480;
-    if(c.finVid){
-      img.style.display = 'none';
-      vid.style.display = 'block';
-      if(vid.getAttribute('src') !== c.finVid) vid.src = c.finVid;
-      try{ vid.currentTime = 0; }catch(e){}
-      vid.muted = false;
-      const pr = vid.play();
-      if(pr && pr.catch) pr.catch(()=>{ vid.muted = true; vid.play().catch(()=>{}); });
-      art.className = 'fx-art finLong';
-      total = 4300;
-    } else {
-      vid.style.display = 'none';
-      img.style.display = 'block';
-      img.src = c.fin;
-      art.className = 'fx-art fin';
+    if(actor === 1){
+      const snd = $('finSnd');
+      try{ snd.currentTime = 0; snd.play().catch(()=>{}); }catch(e){}
     }
 
-    ashBurst();
-    setTimeout(()=>{ flashNow(); shakeNow(); ashBurst(); }, 420);
-    setTimeout(()=>{
-      shakeNow();
-      const el=$('pl'+loser); el.classList.add('dead');
-    }, 1250);
-    setTimeout(()=>{ flashNow(); }, 2100);
-    setTimeout(()=>{ flashNow(); ashBurst(); }, 3400);
+    playStageSeq(actor, c, FIN_T, null);
+    const finAt = FIN_T.reduce((a,b)=> a+b, 0);   // ≈1080ms 播完 8 帧
 
     setTimeout(()=>{
-      vid.pause();
-      fx.classList.remove('on');
-      dark.classList.remove('on');
-      vig.classList.remove('on');
-      art.className = 'fx-art';
-      $('fxAsh').innerHTML='';
+      if(c.fin) $('atk'+actor).src = c.fin;          // 收在终结定格
+      hitFx(loser, c.tone, true);
+      loserEl.classList.add('hit');
+      loserEl.style.transformOrigin = '50% 100%';
+      loserEl.style.transform = 'translateX(' + (actor === 1 ? 26 : -26) + 'px) rotate(' + (actor === 1 ? 7 : -7) + 'deg)';  // 被打退半步
+    }, finAt + 140);
+
+    setTimeout(()=>{
+      ashBurst();
+      hitFx(loser, c.tone, true);
+      loserEl.classList.add('dead');
+      loserEl.classList.remove('hit');
+    }, finAt + 640);
+    setTimeout(()=>{ flashNow(); ashBurst(); }, finAt + 1200);
+
+    setTimeout(()=>{
+      dashBack(actor);
+      showAtk(actor, false);
+      $('darken').classList.remove('on');
+      $('ashLayer').innerHTML='';
       done();
-    }, total);
+    }, finAt + 1780);
   }
 
   /* ===== 换回合 ===== */
@@ -763,10 +805,10 @@
   /* ===== 初始化 ===== */
   state.q[1] = makeQuestion();
   state.q[2] = makeQuestion();
-  /* 预载出招帧与终结视频（首帧优先，其余后台加载） */
+  /* 预载台上出招帧与终结定格（首帧优先，其余后台加载） */
   Object.values(CHARACTERS).forEach(c=>{
     (c.seq||[]).forEach(imgOf);
-    if(c.finVid){ const v = document.createElement('video'); v.src = c.finVid; v.preload = 'auto'; v.muted = true; }
+    if(c.fin) imgOf(c.fin);
   });
 
   renderPanel(1);
