@@ -127,10 +127,6 @@
   }
   .player.p1 .atk{transform:translateX(var(--ax,-43%))}
   .player.p2 .atk{transform:translateX(var(--ax2,-57%)) scaleX(-1)}
-  .player.dash1{animation:dashIn1 .46s ease-out forwards}
-  .player.dash2{animation:dashIn2 .46s ease-out forwards}
-  @keyframes dashIn1{to{transform:translateX(26vw)}}
-  @keyframes dashIn2{to{transform:translateX(-26vw)}}
 
   /* 命中爆点 */
   .impact{
@@ -145,16 +141,12 @@
   .player.dim{filter:brightness(.55) saturate(.35)}
   .player.dead{opacity:.62;filter:grayscale(.6) brightness(.78);transform-origin:50% 100%}
   .player.hit{animation:hitShake .35s ease}
-  .player.lunge1{animation:lunge1 .42s ease}
-  .player.lunge2{animation:lunge2 .42s ease}
   @keyframes hitShake{
     0%,100%{transform:translateX(0)}
     20%{transform:translateX(-10px) rotate(-1.5deg)}
     45%{transform:translateX(8px) rotate(1.5deg)}
     70%{transform:translateX(-5px)}
   }
-  @keyframes lunge1{0%{transform:translateX(0)}45%{transform:translateX(80px) scale(1.05)}100%{transform:translateX(0)}}
-  @keyframes lunge2{0%{transform:translateX(0)}45%{transform:translateX(-80px) scale(1.05)}100%{transform:translateX(0)}}
 
   .p-shadow{position:absolute;bottom:1.5%;height:15%;width:27%;
     background:radial-gradient(ellipse at center,rgba(0,0,0,.72),rgba(0,0,0,.36) 42%,transparent 76%)}
