@@ -19,7 +19,7 @@
   .bg-img{
     position:absolute;inset:0;
     background:url("assets/bg-arena.jpg") center center / cover no-repeat;
-    transform:translateY(var(--bg-y,-3.4%)) scale(1.09);
+    transform:translateY(var(--bg-y,-5.6%)) scale(1.09);
     transform-origin:50% 42%;
   }
   .bg::before{content:"";position:absolute;inset:0;
@@ -100,7 +100,7 @@
   /* ===== 舞台（人物缩小） ===== */
   .stage{position:relative;flex:1 1 auto;min-height:0;overflow:hidden}
   .player{
-    position:absolute;bottom:2%;height:80%;max-width:40%;
+    position:absolute;bottom:.5%;height:76%;max-width:40%;
     display:flex;align-items:flex-end;justify-content:center;
     transition:transform .18s ease,filter .3s ease;
   }
@@ -125,10 +125,10 @@
   @keyframes lunge1{0%{transform:translateX(0)}45%{transform:translateX(80px) scale(1.05)}100%{transform:translateX(0)}}
   @keyframes lunge2{0%{transform:translateX(0)}45%{transform:translateX(-80px) scale(1.05)}100%{transform:translateX(0)}}
 
-  .p-shadow{position:absolute;bottom:1.5%;height:13%;width:28%;
-    background:radial-gradient(ellipse at center,rgba(0,0,0,.5),transparent 70%)}
-  .p-shadow.s1{left:11%}
-  .p-shadow.s2{right:11%}
+  .p-shadow{position:absolute;bottom:1.5%;height:15%;width:27%;
+    background:radial-gradient(ellipse at center,rgba(0,0,0,.72),rgba(0,0,0,.36) 42%,transparent 76%)}
+  .p-shadow.s1{left:12%}
+  .p-shadow.s2{right:12%}
 
   /* 回合提示 */
   .turn-tip{
